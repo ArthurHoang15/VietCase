@@ -1,0 +1,27 @@
+﻿{% extends "base.html" %}
+{% block title %}VietCase | Tài liệu đã tải{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head split">
+    <div>
+      <div class="panel-title">Tài liệu đã tải</div>
+      <p class="muted">Danh sách PDF đã lưu trên máy cùng metadata cơ bản.</p>
+    </div>
+  </div>
+  <div id="documents-list" class="result-list">
+    {% for document in documents %}
+    <article class="result-card">
+      <div class="card-title">{{ document.document_number or document.document_type or 'Tài liệu' }}</div>
+      <div class="meta-grid">
+        <div><strong>Tòa án:</strong> {{ document.court_name }}</div>
+        <div><strong>Loại:</strong> {{ document.document_type }}</div>
+        <div><strong>Trạng thái:</strong> {{ document.download_status }}</div>
+        <div><a href="/api/documents/{{ document.id }}/download-file">Mở PDF</a></div>
+      </div>
+    </article>
+    {% else %}
+    <div class="empty-state">Chưa có tài liệu nào được tải.</div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

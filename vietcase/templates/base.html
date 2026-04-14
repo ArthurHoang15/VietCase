@@ -1,0 +1,35 @@
+﻿<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}VietCase{% endblock %}</title>
+  <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="brand-wrap">
+      <div class="brand-mark">VC</div>
+      <div>
+        <div class="eyebrow">Công cụ tìm kiếm và tải PDF bản án, quyết định</div>
+        <h1>VietCase</h1>
+      </div>
+    </div>
+    <nav class="site-nav">
+      <a href="/" class="{% if page == 'index' %}active{% endif %}">Tìm kiếm</a>
+      <a href="/jobs" class="{% if page == 'jobs' %}active{% endif %}">Lịch sử tải</a>
+      <a href="/documents" class="{% if page == 'documents' %}active{% endif %}">Tài liệu đã tải</a>
+    </nav>
+  </header>
+
+  <section class="legal-note">
+    Dữ liệu được truy xuất từ cổng công bố bản án, quyết định của Tòa án. Người dùng cần tự rà soát quy định sử dụng, lưu trữ, chia sẻ và tái công bố dữ liệu.
+  </section>
+
+  <main class="page-shell">
+    {% block content %}{% endblock %}
+  </main>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

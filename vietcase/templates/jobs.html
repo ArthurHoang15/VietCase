@@ -1,0 +1,27 @@
+﻿{% extends "base.html" %}
+{% block title %}VietCase | Lịch sử tải{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head split">
+    <div>
+      <div class="panel-title">Lịch sử tải</div>
+      <p class="muted">Theo dõi trạng thái từng đợt tải và tiếp tục khi cần.</p>
+    </div>
+  </div>
+  <div id="jobs-list" class="result-list">
+    {% for job in jobs %}
+    <article class="result-card">
+      <div class="card-title">{{ job.job_name or ('Đợt tải #' ~ job.id) }}</div>
+      <div class="meta-grid">
+        <div><strong>Trạng thái:</strong> {{ job.status }}</div>
+        <div><strong>Chế độ:</strong> {{ job.source_mode }}</div>
+        <div><strong>Hoàn tất:</strong> {{ job.items_completed }}/{{ job.items_total }}</div>
+        <div><strong>Lỗi:</strong> {{ job.items_failed }}</div>
+      </div>
+    </article>
+    {% else %}
+    <div class="empty-state">Chưa có đợt tải nào.</div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}
