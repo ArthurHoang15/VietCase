@@ -1,8 +1,8 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
+from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
@@ -14,7 +14,12 @@ class Settings:
     max_retries: int = 3
     playwright_enabled: bool = True
     source_mode_default: str = "auto"
+    search_source_mode: str = "playwright"
+    download_source_mode: str = "requests"
     playwright_browser: str = "chromium"
+    tls_mode: str = "auto"
+    preview_state_ttl_seconds: int = 1800
+    debug_search_snapshots: bool = True
     base_dir: Path = Path(__file__).resolve().parents[2]
 
     @property
@@ -32,6 +37,10 @@ class Settings:
     @property
     def downloads_dir(self) -> Path:
         return self.base_dir / "downloads"
+
+    @property
+    def debug_dir(self) -> Path:
+        return self.data_dir / "search_debug"
 
 
 @lru_cache(maxsize=1)

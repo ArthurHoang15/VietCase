@@ -1,8 +1,10 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
+from uuid import uuid4
 
-from vietcase.db.sqlite import connect, execute, execute_fetchone
+from vietcase.core.config import get_settings
+from vietcase.db.sqlite import connect, execute_fetchone
 from vietcase.schemas.filters import FilterOptions
 from vietcase.services.source_router import SourceContext, SourceRouter
 
@@ -10,21 +12,60 @@ from vietcase.services.source_router import SourceContext, SourceRouter
 class FormService:
     def __init__(self, source_router: SourceRouter) -> None:
         self.source_router = source_router
+        self.settings = get_settings()
+        self._states: dict[str, dict[str, object]] = {}
 
     def get_bootstrap_filters(self, context: SourceContext | None = None) -> FilterOptions:
-        ctx = context or SourceContext()
+        self._cleanup_states()
+        ctx = context or SourceContext(source_mode=self.settings.search_source_mode)
         payload = self.source_router.call("load_filters", ctx)
         hidden_fields = payload.get("hidden_fields", {})
+        fields = payload.get("fields", {})
         selects = payload.get("selects", {})
         self._cache_options(selects)
-        return FilterOptions(hidden_fields=hidden_fields, selects=selects, source_mode=ctx.source_mode)
+        form_state_id = self._save_state({
+            "source_state": payload.get("state", {}),
+            "source_mode": ctx.source_mode,
+            "values": {},
+        })
+        return FilterOptions(hidden_fields=hidden_fields, fields=fields, selects=selects, source_mode=ctx.source_mode, form_state_id=form_state_id)
 
-    def get_dependent_options(self, parent_field: str, parent_value: str, context: SourceContext | None = None) -> dict[str, object]:
-        ctx = context or SourceContext()
-        payload = self.source_router.call("load_dependent_options", ctx, parent_field, parent_value)
+    def get_dependent_options(self, parent_field: str, parent_value: str, form_state_id: str, context: SourceContext | None = None) -> dict[str, object]:
+        self._cleanup_states()
+        state = self._states.get(form_state_id)
+        ctx = context or SourceContext(source_mode=(state or {}).get("source_mode", self.settings.search_source_mode))
+        source_state = (state or {}).get("source_state")
+        payload = self.source_router.call("load_dependent_options", ctx, parent_field, parent_value, source_state)
         selects = payload.get("selects", {})
+        fields = payload.get("fields", {})
+        values = dict((state or {}).get("values", {}))
+        values[parent_field] = parent_value
+        self._states[form_state_id] = {
+            "source_state": payload.get("state", {}),
+            "source_mode": ctx.source_mode,
+            "values": values,
+            "expires_at": datetime.utcnow() + timedelta(seconds=self.settings.preview_state_ttl_seconds),
+        }
         self._cache_options(selects, parent_field=parent_field, parent_value=parent_value)
-        return {"selects": selects, "source_mode": ctx.source_mode}
+        return {"selects": selects, "fields": fields, "source_mode": ctx.source_mode, "form_state_id": form_state_id}
+
+    def get_state(self, form_state_id: str) -> dict[str, object] | None:
+        self._cleanup_states()
+        return self._states.get(form_state_id)
+
+    def _save_state(self, state: dict[str, object]) -> str:
+        state_id = str(uuid4())
+        self._states[state_id] = {
+            **state,
+            "expires_at": datetime.utcnow() + timedelta(seconds=self.settings.preview_state_ttl_seconds),
+        }
+        return state_id
+
+    def _cleanup_states(self) -> None:
+        now = datetime.utcnow()
+        expired = [key for key, value in self._states.items() if value.get("expires_at") and value["expires_at"] < now]
+        for key in expired:
+            self._states.pop(key, None)
 
     def _cache_options(self, selects: dict[str, list[dict[str, str]]], parent_field: str | None = None, parent_value: str | None = None) -> None:
         fetched_at = datetime.utcnow().isoformat(timespec="seconds") + "Z"

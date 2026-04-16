@@ -1,74 +1,163 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from urllib.parse import urljoin
 
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 
-from vietcase.parsers.compatibility import BASE_URL, extract_regex, first_present, get_aliases, make_document_id, normalize_date, normalize_label_text, normalize_whitespace
+from vietcase.parsers.compatibility import BASE_URL, extract_regex, first_present, make_document_id, normalize_date, normalize_whitespace
 
 
 class ListingParser:
     def parse(self, html: str, page_index: int = 1) -> dict[str, object]:
         soup = BeautifulSoup(html, "html.parser")
-        total_results_text = soup.select_one("#ctl00_Content_home_Public_ctl00_lbl_count_record")
-        total_pages_text = soup.select_one("#ctl00_Content_home_Public_ctl00_LbShowtotal")
-        total_results = int(extract_regex(r"(\d[\d\.]*)", total_results_text.get_text(" ", strip=True) if total_results_text else "").replace(".", "") or 0)
-        total_pages = int(extract_regex(r"(\d+)", total_pages_text.get_text(" ", strip=True) if total_pages_text else "") or 0)
+        total_results_text = soup.select_one('#ctl00_Content_home_Public_ctl00_lbl_count_record')
+        total_pages_text = soup.select_one('#ctl00_Content_home_Public_ctl00_LbShowtotal')
+        total_results = int(extract_regex(r'(\d[\d\.]*)', total_results_text.get_text(' ', strip=True) if total_results_text else '').replace('.', '') or 0)
+        total_pages = int(extract_regex(r'(\d+)', total_pages_text.get_text(' ', strip=True) if total_pages_text else '') or 0)
 
-        results: list[dict[str, object]] = []
-        for result_index, item in enumerate(soup.select("#List_group_pub > .list-group-item"), start=1):
-            link = item.select_one("a[href]")
-            source_url = urljoin(BASE_URL, link.get("href", "")) if link else ""
-            title = normalize_whitespace(link.get_text(" ", strip=True)) if link else ""
-            container_text = item.get_text("\n", strip=True)
-            record = {
-                "source_url": source_url,
-                "document_id": make_document_id(source_url),
-                "title": title,
-                "document_type": self._extract_field_from_container(item, "ten_ban_an") or self._extract_field_from_container(item, "ten_quyet_dinh") or ("Bản án" if "bản án" in title.lower() else "Quyết định" if "quyết định" in title.lower() else ""),
-                "document_number": first_present([
-                    self._extract_field_from_container(item, "so_ban_an"),
-                    self._extract_field_from_container(item, "so_quyet_dinh"),
-                    extract_regex(r"Số[^:\n]*:\s*([^\n]+)", container_text),
-                ]),
-                "issued_date": normalize_date(self._extract_field_from_container(item, "ngay_ban_hanh") or extract_regex(r"Ngày ban hành:\s*([^\n]+)", container_text)),
-                "published_date": normalize_date(self._extract_field_from_container(item, "ngay_cong_bo") or extract_regex(r"Ngày công bố:\s*([^\n]+)", container_text)),
-                "court_name": first_present([
-                    self._extract_field_from_container(item, "toa_an"),
-                    extract_regex(r"Tòa án:\s*([^\n]+)", container_text),
-                ]),
-                "case_style": extract_regex(r"Loại vụ việc:\s*([^\n]+)", container_text),
-                "legal_relation": first_present([
-                    self._extract_field_from_container(item, "quan_he_phap_luat"),
-                    extract_regex(r"Quan hệ pháp luật:\s*([^\n]+)", container_text),
-                ]),
-                "adjudication_level": first_present([
-                    self._extract_field_from_container(item, "cap_xet_xu"),
-                    extract_regex(r"Cấp giải quyết/xét xử:\s*([^\n]+)", container_text),
-                ]),
-                "summary_text": normalize_whitespace(container_text),
-                "precedent_applied": self._extract_checkbox_like(container_text, get_aliases("co_ap_dung_an_le")),
-                "precedent_voted": self._extract_checkbox_like(container_text, get_aliases("duoc_binh_chon")),
-                "page_index": page_index,
-                "result_index": result_index,
-            }
-            results.append(record)
+        records: list[dict[str, object]] = []
+        anchors = soup.select('#List_group_pub a.echo_id_pub[href*="chi-tiet-ban-an"]')
+        for result_index, anchor in enumerate(anchors, start=1):
+            item = self._extract_item(anchor)
+            if not item:
+                continue
+            item['page_index'] = page_index
+            item['result_index'] = result_index
+            records.append(item)
+        return {'total_results': total_results, 'total_pages': total_pages, 'results': records}
+
+    def _extract_item(self, anchor: Tag) -> dict[str, object] | None:
+        href = anchor.get('href', '')
+        if not href:
+            return None
+
+        title_text = normalize_whitespace(anchor.get_text(' ', strip=True))
+        heading_label = anchor.select_one('h4.list-group-item-heading label')
+        heading_text = normalize_whitespace(heading_label.get_text(' ', strip=True)).rstrip(':') if heading_label else ''
+        title_block = anchor.select_one('h4.list-group-item-heading span')
+        title = normalize_whitespace(title_block.get_text(' ', strip=True)) if title_block else title_text
+        scope = self._collect_item_scope(anchor)
+
+        source_url = urljoin(BASE_URL, href)
+        published_date = normalize_date(extract_regex(r'\((\d{2}[\./]\d{2}[\./]\d{4})\)', title_text))
+        issued_date = normalize_date(first_present([
+            extract_regex(r'(\d{2}[\./]\d{2}[\./]\d{4})', title),
+            extract_regex(r'(\d{2}[\./]\d{2}[\./]\d{4})', title_text),
+        ]))
+        document_type = heading_text or ('Quy?t ??nh' if 'Quy?t ??nh' in title_text else 'B?n ?n' if 'B?n ?n' in title_text else '')
+        document_number = extract_regex(r'([0-9][0-9A-Za-z.\-/]*(?:/[0-9A-Za-z.\-]+)+)', title)
+        court_name = normalize_whitespace(first_present([
+            extract_regex(r'c?a\s+(.+?)(?:\(|$)', title),
+            self._court_name_from_title(title, issued_date),
+        ]))
+
+        rows = scope.select('.row')
+        legal_relation = first_present([
+            self._extract_labeled_value(scope, 'Quan h? ph?p lu?t'),
+            self._extract_first_span(rows, 0, 0),
+        ])
+        adjudication_level = first_present([
+            self._extract_labeled_value(scope, 'C?p x?t x?'),
+            self._extract_first_span(rows, 1, 0),
+        ])
+        precedent_applied = first_present([
+            self._extract_labeled_value(scope, '?p d?ng ?n l?'),
+            self._extract_first_span(rows, 1, 1),
+        ])
+        case_style = first_present([
+            self._extract_labeled_value(scope, 'Lo?i v?/vi?c'),
+            self._extract_first_span(rows, 2, 0),
+        ])
+        correction_count = first_present([
+            self._extract_labeled_value(scope, '??nh ch?nh'),
+            self._extract_first_span(rows, 2, 1),
+        ])
+        summary_text = first_present([
+            self._extract_labeled_value(scope, 'Th?ng tin v? v?/vi?c'),
+            self._extract_labeled_value(scope, 'Th?ng tin v? v? ?n'),
+            self._extract_description(scope),
+        ])
+
         return {
-            "total_results": total_results,
-            "total_pages": total_pages,
-            "results": results,
+            'source_url': source_url,
+            'document_id': make_document_id(source_url),
+            'title': title,
+            'document_type': document_type,
+            'document_number': document_number,
+            'issued_date': issued_date,
+            'published_date': published_date,
+            'court_name': court_name,
+            'case_style': case_style,
+            'legal_relation': legal_relation,
+            'adjudication_level': adjudication_level,
+            'summary_text': summary_text,
+            'precedent_applied': precedent_applied,
+            'correction_count': correction_count,
         }
 
-    def _extract_field_from_container(self, item: BeautifulSoup, label_key: str) -> str:
-        aliases = [normalize_label_text(alias) for alias in get_aliases(label_key)]
-        for li in item.select("li.list-group-item"):
-            text = normalize_whitespace(li.get_text(" ", strip=True))
-            normalized = normalize_label_text(text)
-            for alias in aliases:
-                if normalized.startswith(alias):
-                    return normalize_whitespace(normalized[len(alias):].lstrip(":"))
-        return ""
+    def _collect_item_scope(self, anchor: Tag) -> Tag:
+        parts = [str(anchor)]
+        sibling = anchor.next_sibling
+        while sibling is not None:
+            if isinstance(sibling, Tag) and sibling.name == 'a' and 'echo_id_pub' in (sibling.get('class') or []):
+                break
+            if isinstance(sibling, Tag):
+                parts.append(str(sibling))
+            sibling = sibling.next_sibling
+        scope_html = '<div>' + ''.join(parts) + '</div>'
+        scope_soup = BeautifulSoup(scope_html, 'html.parser')
+        return scope_soup.div or anchor
 
-    def _extract_checkbox_like(self, text: str, aliases: list[str]) -> bool:
-        lowered = text.lower()
-        return any(alias.lower() in lowered for alias in aliases)
+    def _extract_labeled_value(self, scope: Tag, label_text: str) -> str:
+        for label in scope.select('label'):
+            text = normalize_whitespace(label.get_text(' ', strip=True)).rstrip(':')
+            if text != label_text:
+                continue
+            parent = label.parent if isinstance(label.parent, Tag) else None
+            if parent:
+                sibling = label.next_sibling
+                while sibling is not None:
+                    if isinstance(sibling, Tag):
+                        value = normalize_whitespace(sibling.get_text(' ', strip=True))
+                    else:
+                        value = normalize_whitespace(str(sibling))
+                    if value:
+                        return value.lstrip(':').strip()
+                    sibling = sibling.next_sibling
+                parent_text = normalize_whitespace(parent.get_text(' ', strip=True))
+                if parent_text.startswith(label_text):
+                    stripped = normalize_whitespace(parent_text[len(label_text):].lstrip(':'))
+                    if stripped:
+                        return stripped
+        return ''
+
+    def _extract_first_span(self, rows: list[Tag], row_index: int, col_index: int) -> str:
+        if row_index >= len(rows):
+            return ''
+        cols = rows[row_index].select('div[class*="col-"]')
+        if col_index >= len(cols):
+            return ''
+        span = cols[col_index].find('span')
+        return normalize_whitespace(span.get_text(' ', strip=True)) if span else ''
+
+    def _extract_description(self, scope: Tag) -> str:
+        description = scope.select_one('.Description_pub span') or scope.select_one('.Description_pub')
+        if not description:
+            return ''
+        text = normalize_whitespace(description.get_text(' ', strip=True))
+        return text.replace('Th?ng tin v? v?/vi?c:', '').replace('Th?ng tin v? v? ?n:', '').strip()
+
+    def _court_name_from_title(self, title: str, issued_date: str) -> str:
+        if not title:
+            return ''
+        source = title
+        if issued_date:
+            display_date = issued_date.replace('-', '/')
+            index = title.find(display_date)
+            if index >= 0:
+                source = title[index + len(display_date):]
+        source = source.split('(', 1)[0]
+        parts = source.split(' c?a ', 1)
+        if len(parts) == 2:
+            return normalize_whitespace(parts[1])
+        return ''

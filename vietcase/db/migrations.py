@@ -45,7 +45,10 @@ CREATE TABLE IF NOT EXISTS download_jobs (
     started_at TEXT,
     finished_at TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    job_folder TEXT,
+    last_processed_page INTEGER DEFAULT 0,
+    tls_mode TEXT DEFAULT 'secure'
 );
 
 CREATE TABLE IF NOT EXISTS job_items (
@@ -84,7 +87,16 @@ CREATE TABLE IF NOT EXISTS filter_option_cache (
 """
 
 
+def _ensure_column(conn, table: str, column: str, column_def: str) -> None:
+    existing = {row[1] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+    if column not in existing:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {column_def}")
+
+
 def init_db() -> None:
     with connect() as conn:
         conn.executescript(SCHEMA_SQL)
+        _ensure_column(conn, "download_jobs", "job_folder", "TEXT")
+        _ensure_column(conn, "download_jobs", "last_processed_page", "INTEGER DEFAULT 0")
+        _ensure_column(conn, "download_jobs", "tls_mode", "TEXT DEFAULT 'secure'")
         conn.commit()

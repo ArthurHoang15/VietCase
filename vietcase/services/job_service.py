@@ -30,10 +30,12 @@ class JobService:
         items = items or []
         with connect() as conn:
             cursor = conn.execute(
-                "INSERT INTO download_jobs (mode, job_name, filters_json, status, source_mode, source_mode_reason) VALUES (?, ?, ?, 'queued', 'requests', 'initial_default')",
-                (mode, job_name, json.dumps(filters, ensure_ascii=False)),
+                "INSERT INTO download_jobs (mode, job_name, filters_json, status, source_mode, source_mode_reason, job_folder, last_processed_page, tls_mode) VALUES (?, ?, ?, 'queued', ?, 'initial_default', ?, 0, 'secure')",
+                (mode, job_name, json.dumps(filters, ensure_ascii=False), self.settings.download_source_mode, str(self._job_folder_path(None))),
             )
             job_id = int(cursor.lastrowid)
+            job_folder = self._job_folder_path(job_id)
+            conn.execute("UPDATE download_jobs SET job_folder = ? WHERE id = ?", (str(job_folder), job_id))
             for item in items:
                 conn.execute(
                     "INSERT OR IGNORE INTO job_items (job_id, source_url, document_id, document_type, document_number, issued_date, court_name, case_style, summary_text, selected, page_index, result_index) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -52,6 +54,7 @@ class JobService:
                         int(item.get("result_index", 0) or 0),
                     ),
                 )
+            conn.execute("UPDATE download_jobs SET items_total = (SELECT COUNT(*) FROM job_items WHERE job_id = ?) WHERE id = ?", (job_id, job_id))
             conn.commit()
         return self.get_job(job_id)
 
@@ -79,41 +82,58 @@ class JobService:
             conn.commit()
 
     def list_jobs(self) -> list[dict]:
-        rows = execute_fetchall("SELECT * FROM download_jobs ORDER BY id DESC")
-        return [dict(row) for row in rows]
+        return [dict(row) for row in execute_fetchall("SELECT * FROM download_jobs ORDER BY id DESC")]
 
     def get_job(self, job_id: int) -> dict:
         row = execute_fetchone("SELECT * FROM download_jobs WHERE id = ?", (job_id,))
         return dict(row) if row else {}
 
     def list_job_items(self, job_id: int) -> list[dict]:
-        rows = execute_fetchall("SELECT * FROM job_items WHERE job_id = ? ORDER BY id", (job_id,))
-        return [dict(row) for row in rows]
+        return [dict(row) for row in execute_fetchall("SELECT * FROM job_items WHERE job_id = ? ORDER BY page_index, result_index, id", (job_id,))]
 
     def list_documents(self) -> list[dict]:
-        rows = execute_fetchall("SELECT * FROM documents ORDER BY id DESC")
-        return [dict(row) for row in rows]
+        return [dict(row) for row in execute_fetchall("SELECT * FROM documents ORDER BY id DESC")]
 
     def _run_job(self, job_id: int) -> None:
         job = self.get_job(job_id)
         if not job:
             return
         filters = json.loads(job.get("filters_json") or "{}")
-        ctx = SourceContext(source_mode=job.get("source_mode") or "requests", job_id=job_id)
-        job_folder = self._job_folder(job_id)
+        download_ctx = SourceContext(source_mode=job.get("source_mode") or self.settings.download_source_mode, job_id=job_id)
+        job_folder = Path(job.get("job_folder") or self._job_folder_path(job_id))
         job_folder.mkdir(parents=True, exist_ok=True)
         self._update_job(job_id, status="running", started_at=self._now())
 
-        items = self.list_job_items(job_id)
-        if not items and filters:
-            preview = self.search_service.preview(filters, context=ctx)
-            self._update_job(
-                job_id,
-                source_mode=ctx.source_mode,
-                source_mode_reason="auto_fallback_detected" if ctx.source_mode == "playwright" else "initial_default",
-                total_results_estimate=preview.total_results,
-                total_pages_estimate=preview.total_pages,
-            )
+        if filters and not self.list_job_items(job_id):
+            self._populate_items_from_filters(job_id, filters)
+
+        for item in self.list_job_items(job_id):
+            latest_job = self.get_job(job_id)
+            if latest_job.get("status") in {"paused", "cancelled"}:
+                LOGGER.info("Stopping job %s because status is %s", job_id, latest_job.get("status"))
+                return
+            if item.get("status") == "completed":
+                continue
+            try:
+                detail = self.detail_service.fetch(item["source_url"], context=download_ctx)
+                if not detail.get("pdf_url"):
+                    raise ValueError("Kh?ng t?m th?y ???ng d?n PDF trong trang chi ti?t")
+                saved = self.pdf_service.save_pdf(detail["pdf_url"], detail.get("court_name", ""), detail.get("document_type", ""), job_folder)
+                self._mark_item_completed(job_id, item, detail, saved, download_ctx.source_mode)
+            except Exception as exc:
+                LOGGER.exception("Failed to process item %s in job %s", item.get("id"), job_id)
+                self._mark_item_failed(job_id, item["id"], str(exc), download_ctx.source_mode)
+
+        self._update_job(job_id, status="completed", finished_at=self._now(), source_mode=download_ctx.source_mode, source_mode_reason="auto_fallback_detected" if download_ctx.source_mode == "playwright" else "initial_default")
+
+    def _populate_items_from_filters(self, job_id: int, filters: dict[str, object]) -> None:
+        search_ctx = SourceContext(source_mode=self.settings.search_source_mode, job_id=job_id)
+        total_items = 0
+        total_pages = 0
+        total_results = 0
+        for preview in self.search_service.iter_all_results(filters, context=search_ctx):
+            total_pages = preview.total_pages
+            total_results = preview.total_results
             with connect() as conn:
                 for item in preview.results:
                     conn.execute(
@@ -133,26 +153,9 @@ class JobService:
                             int(item.get("result_index", 0) or 0),
                         ),
                     )
-                conn.execute("UPDATE download_jobs SET items_total = (SELECT COUNT(*) FROM job_items WHERE job_id = ?) WHERE id = ?", (job_id, job_id))
+                conn.execute("UPDATE download_jobs SET items_total = (SELECT COUNT(*) FROM job_items WHERE job_id = ?), total_results_estimate = ?, total_pages_estimate = ?, last_processed_page = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (job_id, total_results, total_pages, preview.current_page, job_id))
                 conn.commit()
-            items = self.list_job_items(job_id)
-
-        for item in items:
-            latest_job = self.get_job(job_id)
-            if latest_job.get("status") in {"paused", "cancelled"}:
-                LOGGER.info("Stopping job %s because status is %s", job_id, latest_job.get("status"))
-                return
-            if item.get("status") == "completed":
-                continue
-            try:
-                detail = self.detail_service.fetch(item["source_url"], context=ctx)
-                saved = self.pdf_service.save_pdf(detail["pdf_url"], detail.get("court_name", ""), detail.get("document_type", ""), job_folder)
-                self._mark_item_completed(job_id, item, detail, saved, ctx.source_mode)
-            except Exception as exc:
-                LOGGER.exception("Failed to process item %s in job %s", item.get("id"), job_id)
-                self._mark_item_failed(job_id, item["id"], str(exc), ctx.source_mode)
-
-        self._update_job(job_id, status="completed", finished_at=self._now(), source_mode=ctx.source_mode, source_mode_reason="auto_fallback_detected" if ctx.source_mode == "playwright" else "initial_default")
+            total_items += len(preview.results)
 
     def _mark_item_completed(self, job_id: int, item: dict, detail: dict, saved: dict, source_mode: str) -> None:
         with connect() as conn:
@@ -181,7 +184,7 @@ class JobService:
                     job_id,
                 ),
             )
-            conn.execute("UPDATE download_jobs SET items_completed = COALESCE(items_completed, 0) + 1, source_mode = ?, source_mode_reason = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (source_mode, "auto_fallback_detected" if source_mode == "playwright" else "initial_default", job_id))
+            conn.execute("UPDATE download_jobs SET items_completed = COALESCE(items_completed, 0) + 1, source_mode = ?, source_mode_reason = ?, tls_mode = COALESCE(tls_mode, 'secure'), updated_at = CURRENT_TIMESTAMP WHERE id = ?", (source_mode, "auto_fallback_detected" if source_mode == "playwright" else "initial_default", job_id))
             conn.commit()
 
     def _mark_item_failed(self, job_id: int, item_id: int, error_message: str, source_mode: str) -> None:
@@ -204,8 +207,9 @@ class JobService:
             conn.execute(f"UPDATE download_jobs SET {', '.join(columns)} WHERE id = ?", tuple(values))
             conn.commit()
 
-    def _job_folder(self, job_id: int) -> Path:
-        return self.settings.downloads_dir / f"{job_id}__{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+    def _job_folder_path(self, job_id: int | None) -> Path:
+        name = str(job_id) if job_id is not None else "pending"
+        return self.settings.downloads_dir / name
 
     def _now(self) -> str:
         return datetime.utcnow().isoformat(timespec="seconds") + "Z"

@@ -5,18 +5,24 @@
   <div class="panel-head split">
     <div>
       <div class="panel-title">Lịch sử tải</div>
-      <p class="muted">Theo dõi trạng thái từng đợt tải và tiếp tục khi cần.</p>
+      <p class="muted">Theo dõi tiến độ từng đợt tải, nguồn truy cập đang dùng, và tiếp tục khi cần.</p>
     </div>
   </div>
   <div id="jobs-list" class="result-list">
     {% for job in jobs %}
     <article class="result-card">
-      <div class="card-title">{{ job.job_name or ('Đợt tải #' ~ job.id) }}</div>
-      <div class="meta-grid">
+      <header>
+        <div>
+          <div class="card-title">{{ job.job_name or ('Đợt tải #' ~ job.id) }}</div>
+          <div class="muted">{{ job.created_at }}</div>
+        </div>
+        <span class="badge {% if job.source_mode == 'playwright' %}badge-playwright{% else %}badge-requests{% endif %}">{{ job.source_mode }}</span>
+      </header>
+      <div class="meta-grid jobs-grid">
         <div><strong>Trạng thái:</strong> {{ job.status }}</div>
-        <div><strong>Chế độ:</strong> {{ job.source_mode }}</div>
-        <div><strong>Hoàn tất:</strong> {{ job.items_completed }}/{{ job.items_total }}</div>
+        <div><strong>Tiến độ:</strong> {{ job.items_completed }}/{{ job.items_total }}</div>
         <div><strong>Lỗi:</strong> {{ job.items_failed }}</div>
+        <div><strong>Trang đã xử lý:</strong> {{ job.last_processed_page }}</div>
       </div>
     </article>
     {% else %}

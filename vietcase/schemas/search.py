@@ -22,3 +22,5 @@ class SearchPreviewResult:
     total_pages: int = 0
     results: list[dict] = field(default_factory=list)
     source_mode: str = "requests"
+    preview_id: str = ""
+    current_page: int = 1
