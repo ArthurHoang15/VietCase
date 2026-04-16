@@ -1,10 +1,12 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from dataclasses import dataclass
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+
+from vietcase.core.presentation import with_document_display_fields, with_job_display_fields
 
 
 def get_templates(request: Request) -> Jinja2Templates:
@@ -45,7 +47,7 @@ def jobs_page(request: Request, templates: Jinja2Templates = Depends(get_templat
         request,
         "jobs.html",
         {
-            "jobs": services.job_service.list_jobs(),
+            "jobs": [with_job_display_fields(job) for job in services.job_service.list_jobs()],
             "page": "jobs",
         },
     )
@@ -57,7 +59,7 @@ def documents_page(request: Request, templates: Jinja2Templates = Depends(get_te
         request,
         "documents.html",
         {
-            "documents": services.job_service.list_documents(),
+            "documents": [with_document_display_fields(document) for document in services.job_service.list_documents()],
             "page": "documents",
         },
     )

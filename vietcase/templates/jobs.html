@@ -1,11 +1,11 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% block title %}VietCase | Lịch sử tải{% endblock %}
 {% block content %}
 <section class="panel">
   <div class="panel-head split">
     <div>
       <div class="panel-title">Lịch sử tải</div>
-      <p class="muted">Theo dõi tiến độ từng đợt tải, nguồn truy cập đang dùng, và tiếp tục khi cần.</p>
+      <p class="muted">Theo dõi tiến độ từng đợt tải, nguồn truy cập đang dùng và trạng thái mới nhất. Trang này tự làm mới mỗi 2 giây.</p>
     </div>
   </div>
   <div id="jobs-list" class="result-list">
@@ -14,7 +14,7 @@
       <header>
         <div>
           <div class="card-title">{{ job.job_name or ('Đợt tải #' ~ job.id) }}</div>
-          <div class="muted">{{ job.created_at }}</div>
+          <div class="muted">Tạo lúc: {{ job.created_at_display or job.created_at }}</div>
         </div>
         <span class="badge {% if job.source_mode == 'playwright' %}badge-playwright{% else %}badge-requests{% endif %}">{{ job.source_mode }}</span>
       </header>

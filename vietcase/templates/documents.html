@@ -1,4 +1,4 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% block title %}VietCase | Tài liệu đã tải{% endblock %}
 {% block content %}
 <section class="panel">
@@ -18,7 +18,7 @@
       <div class="meta-grid">
         <div><strong>Tòa án:</strong> {{ document.court_name }}</div>
         <div><strong>Loại:</strong> {{ document.document_type }}</div>
-        <div><strong>Ngày ban hành:</strong> {{ document.issued_date }}</div>
+        <div><strong>Ngày ban hành:</strong> {{ document.issued_date_display }}</div>
         <div><a href="/api/documents/{{ document.id }}/download-file">Mở PDF</a></div>
       </div>
     </article>

@@ -118,7 +118,7 @@ class JobService:
                 detail = self.detail_service.fetch(item["source_url"], context=download_ctx)
                 if not detail.get("pdf_url"):
                     raise ValueError("Kh?ng t?m th?y ???ng d?n PDF trong trang chi ti?t")
-                saved = self.pdf_service.save_pdf(detail["pdf_url"], detail.get("court_name", ""), detail.get("document_type", ""), job_folder)
+                saved = self.pdf_service.save_pdf(detail["pdf_url"], detail.get("court_name", ""), detail.get("document_type", ""), job_folder, detail.get("document_number", "") or item.get("document_number", ""))
                 self._mark_item_completed(job_id, item, detail, saved, download_ctx.source_mode)
             except Exception as exc:
                 LOGGER.exception("Failed to process item %s in job %s", item.get("id"), job_id)
