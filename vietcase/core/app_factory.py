@@ -1,5 +1,7 @@
 ﻿from __future__ import annotations
 
+import logging
+
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -23,6 +25,9 @@ from vietcase.services.source_client_requests import RequestsSourceClient
 from vietcase.services.source_router import SourceRouter
 
 
+LOGGER = logging.getLogger(__name__)
+
+
 def create_app() -> FastAPI:
     settings = get_settings()
     ensure_runtime_dirs()
@@ -31,6 +36,10 @@ def create_app() -> FastAPI:
     repair_interrupted_jobs()
 
     requests_client = RequestsSourceClient()
+    if settings.tls_mode == "auto":
+        warmup_mode = requests_client.warm_up_tls_cache()
+        if warmup_mode:
+            LOGGER.info("Requests client TLS warm-up completed in %s mode", warmup_mode)
     playwright_client = PlaywrightSourceClient()
     source_router = SourceRouter(requests_client, playwright_client)
 

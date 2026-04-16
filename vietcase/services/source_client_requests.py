@@ -5,7 +5,7 @@ import time
 import warnings
 from copy import deepcopy
 from datetime import datetime
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 import requests
 from requests import Response
@@ -30,6 +30,7 @@ class RequestsSourceClient:
     def __init__(self) -> None:
         self.settings = get_settings()
         self.session = requests.Session()
+        self._tls_mode_by_host: dict[str, str] = {}
         self.session.headers.update(
             {
                 "User-Agent": (
@@ -127,6 +128,17 @@ class RequestsSourceClient:
         response, _tls_mode = self._request("GET", urljoin(BASE_URL, pdf_url))
         return response.content
 
+    def warm_up_tls_cache(self, url: str = SEARCH_URL) -> str | None:
+        try:
+            response, tls_mode = self._request("GET", url, stream=True)
+        except Exception as exc:
+            LOGGER.warning("Warm-up request failed for %s: %s", url, exc)
+            return None
+        if getattr(response, "raw", None) is not None:
+            response.close()
+        LOGGER.info("Warm-up request completed for %s using %s mode", url, tls_mode)
+        return tls_mode
+
     def _base_payload(self, state: dict[str, object]) -> dict[str, object]:
         payload = dict(state.get("hidden_fields", {}))
         payload.setdefault("__EVENTTARGET", "")
@@ -172,18 +184,26 @@ class RequestsSourceClient:
         }
 
     def _request(self, method: str, url: str, *, tls_mode: str | None = None, **kwargs) -> tuple[Response, str]:
-        preferred = tls_mode or ("secure" if self.settings.tls_mode == "auto" else self.settings.tls_mode)
+        host = urlparse(url).netloc
+        cached_tls_mode = self._tls_mode_by_host.get(host)
+        preferred = tls_mode or cached_tls_mode or ("secure" if self.settings.tls_mode == "auto" else self.settings.tls_mode)
         try:
             if preferred == "compatibility":
                 response = self._send(method, url, verify=False, **kwargs)
+                if host:
+                    self._tls_mode_by_host[host] = "compatibility"
                 return response, "compatibility"
             response = self._send(method, url, verify=True, **kwargs)
+            if host and preferred != "compatibility":
+                self._tls_mode_by_host.pop(host, None)
             return response, "secure"
         except requests.exceptions.SSLError:
             if self.settings.tls_mode == "strict":
                 raise
             LOGGER.warning("TLS verification failed for %s; falling back to compatibility mode", url)
             response = self._send(method, url, verify=False, **kwargs)
+            if host:
+                self._tls_mode_by_host[host] = "compatibility"
             return response, "compatibility"
 
     def _send(self, method: str, url: str, *, verify: bool, **kwargs) -> Response:

@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+import requests
+
 from vietcase.parsers.detail_common_parser import DetailCommonParser
 from vietcase.parsers.form_parser import FormParser
 from vietcase.parsers.listing_parser import ListingParser
+from requests import Response
+
 from vietcase.services.search_service import SearchService
+from vietcase.services.source_client_requests import RequestsSourceClient
 from vietcase.services.source_router import FallbackRequiredError, SourceContext, SourceRouter
 
 
@@ -171,3 +176,66 @@ def test_search_service_preview_and_page_keep_preview_state() -> None:
     assert preview.source_mode == "playwright"
     assert page2.current_page == 2
     assert page2.results[0]["page_index"] == 2
+
+
+def test_requests_client_remembers_compatibility_mode_per_host() -> None:
+    client = RequestsSourceClient()
+    calls: list[tuple[str, bool]] = []
+
+    def fake_send(method: str, url: str, *, verify: bool, **kwargs: object) -> Response:
+        calls.append((url, verify))
+        if len(calls) == 1 and verify:
+            raise requests.exceptions.SSLError('tls failed')
+        response = Response()
+        response.status_code = 200
+        response._content = b'ok'
+        response.encoding = 'utf-8'
+        response.url = url
+        return response
+
+    client._send = fake_send  # type: ignore[method-assign]
+
+    response, tls_mode = client._request('GET', 'https://example.com/first')
+    assert response.status_code == 200
+    assert tls_mode == 'compatibility'
+    assert calls == [
+        ('https://example.com/first', True),
+        ('https://example.com/first', False),
+    ]
+
+    calls.clear()
+    response, tls_mode = client._request('GET', 'https://example.com/second')
+    assert response.status_code == 200
+    assert tls_mode == 'compatibility'
+    assert calls == [('https://example.com/second', False)]
+
+
+def test_requests_client_warm_up_tls_cache_primes_host_cache() -> None:
+    client = RequestsSourceClient()
+    calls: list[tuple[str, bool, bool]] = []
+
+    def fake_send(method: str, url: str, *, verify: bool, **kwargs: object) -> Response:
+        calls.append((url, verify, bool(kwargs.get('stream'))))
+        if len(calls) == 1 and verify:
+            raise requests.exceptions.SSLError('tls failed')
+        response = Response()
+        response.status_code = 200
+        response._content = b''
+        response.encoding = 'utf-8'
+        response.url = url
+        return response
+
+    client._send = fake_send  # type: ignore[method-assign]
+
+    tls_mode = client.warm_up_tls_cache('https://example.com/bootstrap')
+    assert tls_mode == 'compatibility'
+    assert calls == [
+        ('https://example.com/bootstrap', True, True),
+        ('https://example.com/bootstrap', False, True),
+    ]
+
+    calls.clear()
+    response, tls_mode = client._request('GET', 'https://example.com/next')
+    assert response.status_code == 200
+    assert tls_mode == 'compatibility'
+    assert calls == [('https://example.com/next', False, False)]
