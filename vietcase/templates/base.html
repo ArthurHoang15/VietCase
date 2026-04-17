@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}VietCase{% endblock %}</title>
-  <link rel="stylesheet" href="/static/css/app.css">
+  <link rel="stylesheet" href="/static/css/app.css?v=20260417-v2">
 </head>
 <body>
   <header class="site-header">
@@ -30,6 +30,27 @@
     {% block content %}{% endblock %}
   </main>
 
-  <script src="/static/js/app.js"></script>
+  <div id="confirm-modal" class="modal-shell hidden" aria-hidden="true">
+    <div class="modal-backdrop" data-modal-close></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title">
+      <div class="modal-title" id="confirm-modal-title">Xác nhận thao tác</div>
+      <p id="confirm-modal-message" class="modal-message"></p>
+      <div class="button-row modal-actions">
+        <button type="button" id="confirm-modal-cancel" class="ghost">Hủy</button>
+        <button type="button" id="confirm-modal-submit" class="primary danger">Xác nhận</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="loading-modal" class="modal-shell hidden" aria-hidden="true">
+    <div class="modal-backdrop"></div>
+    <div class="modal-card loading-card" role="status" aria-live="polite">
+      <div class="loading-spinner" aria-hidden="true"></div>
+      <div class="modal-title">Đang xử lý</div>
+      <p id="loading-modal-message" class="modal-message">Đang tải dữ liệu...</p>
+    </div>
+  </div>
+
+  <script src="/static/js/app.js?v=20260417-v2"></script>
 </body>
 </html>

@@ -30,23 +30,22 @@ class SourceRouter:
 
     def call(self, action: str, context: SourceContext, *args: Any, **kwargs: Any) -> Any:
         if action in SEARCH_ACTIONS:
-            if self._search_playwright_disabled:
-                context.source_mode = "requests"
-                return self._invoke(self.requests_client, action, *args, **kwargs)
-            try:
-                context.source_mode = "playwright"
-                return self._invoke(self.playwright_client, action, *args, **kwargs)
-            except Exception as exc:
-                message = str(exc)
-                if "Sync API inside the asyncio loop" in message:
-                    self._search_playwright_disabled = True
-                LOGGER.warning(
-                    "Search action %s is falling back to requests because Playwright failed: %s",
-                    action,
-                    exc,
-                )
-                context.source_mode = "requests"
-                return self._invoke(self.requests_client, action, *args, **kwargs)
+            preferred_mode = context.source_mode or self.settings.search_source_mode
+            if preferred_mode == "playwright" and not self._search_playwright_disabled:
+                try:
+                    context.source_mode = "playwright"
+                    return self._invoke(self.playwright_client, action, *args, **kwargs)
+                except Exception as exc:
+                    message = str(exc)
+                    if "Sync API inside the asyncio loop" in message:
+                        self._search_playwright_disabled = True
+                    LOGGER.warning(
+                        "Search action %s is falling back to requests because Playwright failed: %s",
+                        action,
+                        exc,
+                    )
+            context.source_mode = "requests"
+            return self._invoke(self.requests_client, action, *args, **kwargs)
 
         if context.source_mode == "playwright":
             try:

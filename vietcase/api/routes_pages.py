@@ -55,11 +55,14 @@ def jobs_page(request: Request, templates: Jinja2Templates = Depends(get_templat
 
 @router.get("/documents", response_class=HTMLResponse)
 def documents_page(request: Request, templates: Jinja2Templates = Depends(get_templates), services: PageServices = Depends(get_services)) -> HTMLResponse:
+    payload = services.job_service.search_document_files(page=1, page_size=10)
     return templates.TemplateResponse(
         request,
         "documents.html",
         {
-            "documents": [with_document_display_fields(document) for document in services.job_service.list_documents()],
+            "documents": [with_document_display_fields(document) for document in payload["items"]],
+            "documents_total": payload["total"],
+            "document_filter_options": payload["filter_options"],
             "page": "documents",
         },
     )

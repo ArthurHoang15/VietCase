@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% block title %}VietCase | Lịch sử tải{% endblock %}
 {% block content %}
 <section class="panel">
@@ -6,23 +6,37 @@
     <div>
       <div class="panel-title">Lịch sử tải</div>
       <p class="muted">Theo dõi tiến độ từng đợt tải, nguồn truy cập đang dùng và trạng thái mới nhất. Trang này tự làm mới mỗi 2 giây.</p>
+      <p id="jobs-selection-note" class="muted">Chưa chọn cụm tải nào.</p>
+    </div>
+    <div class="button-row tight">
+      <button type="button" id="jobs-delete-selected" class="ghost">Xóa đã chọn</button>
+      <button type="button" id="jobs-delete-all" class="ghost">Xóa tất cả</button>
     </div>
   </div>
   <div id="jobs-list" class="result-list">
     {% for job in jobs %}
-    <article class="result-card">
+    <article class="result-card job-card">
       <header>
         <div>
           <div class="card-title">{{ job.job_name or ('Đợt tải #' ~ job.id) }}</div>
-          <div class="muted">Tạo lúc: {{ job.created_at_display or job.created_at }}</div>
+          <div class="result-subtitle">Tạo lúc {{ job.created_at_display or job.created_at or '' }}</div>
         </div>
-        <span class="badge {% if job.source_mode == 'playwright' %}badge-playwright{% else %}badge-requests{% endif %}">{{ job.source_mode }}</span>
+        <div class="button-row tight align-start">
+          <span class="badge {% if job.source_mode == 'playwright' %}badge-playwright{% else %}badge-requests{% endif %}">{{ job.source_mode }}</span>
+          <label><input type="checkbox" class="job-selector" data-id="{{ job.id }}"> Chọn</label>
+        </div>
       </header>
       <div class="meta-grid jobs-grid">
         <div><strong>Trạng thái:</strong> {{ job.status }}</div>
         <div><strong>Tiến độ:</strong> {{ job.items_completed }}/{{ job.items_total }}</div>
         <div><strong>Lỗi:</strong> {{ job.items_failed }}</div>
         <div><strong>Trang đã xử lý:</strong> {{ job.last_processed_page }}</div>
+      </div>
+      <div class="button-row tight">
+        <button class="ghost" data-job-action="resume" data-id="{{ job.id }}">Tiếp tục</button>
+        <button class="ghost" data-job-action="pause" data-id="{{ job.id }}">Tạm dừng</button>
+        <button class="ghost" data-job-action="cancel" data-id="{{ job.id }}">Hủy</button>
+        <button class="ghost" data-job-action="delete" data-id="{{ job.id }}">Xóa</button>
       </div>
     </article>
     {% else %}

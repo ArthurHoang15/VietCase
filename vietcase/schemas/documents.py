@@ -1,10 +1,11 @@
-﻿from dataclasses import dataclass
+from dataclasses import dataclass
 
 
 @dataclass(slots=True)
 class DocumentView:
     id: int
     source_url: str
+    title: str
     document_type: str
     document_number: str
     court_name: str

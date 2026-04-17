@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from vietcase.db.sqlite import connect
 
@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS documents (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     source_url TEXT NOT NULL UNIQUE,
     document_id TEXT,
+    title TEXT,
     document_type TEXT,
     document_number TEXT,
     issued_date TEXT,
@@ -18,6 +19,13 @@ CREATE TABLE IF NOT EXISTS documents (
     case_style TEXT,
     legal_relation TEXT,
     summary_text TEXT,
+    source_card_text TEXT,
+    source_card_html TEXT,
+    precedent_applied TEXT,
+    correction_count TEXT,
+    precedent_vote_count TEXT,
+    pdf_text TEXT,
+    search_text_normalized TEXT,
     pdf_url TEXT,
     pdf_path TEXT,
     file_name_original TEXT,
@@ -56,12 +64,18 @@ CREATE TABLE IF NOT EXISTS job_items (
     job_id INTEGER NOT NULL,
     source_url TEXT NOT NULL,
     document_id TEXT,
+    title TEXT,
     document_type TEXT,
     document_number TEXT,
     issued_date TEXT,
     court_name TEXT,
     case_style TEXT,
     summary_text TEXT,
+    source_card_text TEXT,
+    source_card_html TEXT,
+    precedent_applied TEXT,
+    correction_count TEXT,
+    precedent_vote_count TEXT,
     pdf_url TEXT,
     pdf_path TEXT,
     status TEXT NOT NULL DEFAULT 'pending',
@@ -72,6 +86,16 @@ CREATE TABLE IF NOT EXISTS job_items (
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(job_id, source_url)
+);
+
+CREATE TABLE IF NOT EXISTS document_files (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    document_source_url TEXT NOT NULL,
+    job_id INTEGER,
+    job_folder TEXT,
+    pdf_path TEXT NOT NULL,
+    file_name_original TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS filter_option_cache (
@@ -87,16 +111,76 @@ CREATE TABLE IF NOT EXISTS filter_option_cache (
 """
 
 
+DOCUMENT_FTS_SQL = """
+CREATE VIRTUAL TABLE IF NOT EXISTS documents_fts USING fts5(
+    source_url UNINDEXED,
+    search_text_normalized
+);
+"""
+
+
 def _ensure_column(conn, table: str, column: str, column_def: str) -> None:
     existing = {row[1] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
     if column not in existing:
         conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {column_def}")
 
 
+def _seed_document_files_from_documents(conn) -> None:
+    existing_count = conn.execute("SELECT COUNT(*) FROM document_files").fetchone()[0]
+    if int(existing_count or 0) > 0:
+        return
+    rows = conn.execute(
+        "SELECT source_url, last_job_id, pdf_path, file_name_original, downloaded_at, created_at FROM documents WHERE COALESCE(pdf_path, '') <> ''"
+    ).fetchall()
+    for row in rows:
+        conn.execute(
+            "INSERT INTO document_files (document_source_url, job_id, job_folder, pdf_path, file_name_original, created_at) VALUES (?, ?, '', ?, ?, COALESCE(?, ?, CURRENT_TIMESTAMP))",
+            (
+                row[0],
+                row[1],
+                row[2],
+                row[3],
+                row[4],
+                row[5],
+            ),
+        )
+
+
 def init_db() -> None:
     with connect() as conn:
         conn.executescript(SCHEMA_SQL)
-        _ensure_column(conn, "download_jobs", "job_folder", "TEXT")
-        _ensure_column(conn, "download_jobs", "last_processed_page", "INTEGER DEFAULT 0")
-        _ensure_column(conn, "download_jobs", "tls_mode", "TEXT DEFAULT 'secure'")
+        for table, columns in {
+            'documents': {
+                'title': 'TEXT',
+                'source_card_text': 'TEXT',
+                'source_card_html': 'TEXT',
+                'precedent_applied': 'TEXT',
+                'correction_count': 'TEXT',
+                'precedent_vote_count': 'TEXT',
+                'pdf_text': 'TEXT',
+                'search_text_normalized': 'TEXT',
+            },
+            'job_items': {
+                'title': 'TEXT',
+                'source_card_text': 'TEXT',
+                'source_card_html': 'TEXT',
+                'precedent_applied': 'TEXT',
+                'correction_count': 'TEXT',
+                'precedent_vote_count': 'TEXT',
+            },
+            'download_jobs': {
+                'job_folder': 'TEXT',
+                'last_processed_page': 'INTEGER DEFAULT 0',
+                'tls_mode': "TEXT DEFAULT 'secure'",
+            },
+        }.items():
+            for column, column_def in columns.items():
+                _ensure_column(conn, table, column, column_def)
+
+        try:
+            conn.executescript(DOCUMENT_FTS_SQL)
+        except Exception:
+            pass
+
+        _seed_document_files_from_documents(conn)
         conn.commit()

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Request
+from fastapi.concurrency import run_in_threadpool
 
 
 router = APIRouter(prefix="/api", tags=["search"])
@@ -31,7 +32,7 @@ async def search_preview(request: Request) -> dict[str, object]:
     filters = payload.get("filters", {})
     page_index = int(payload.get("page_index", 1) or 1)
     search_service = request.app.state.services["search_service"]
-    result = search_service.preview(filters, page_index=page_index)
+    result = await run_in_threadpool(search_service.preview, filters, page_index)
     return {
         "total_results": result.total_results,
         "total_pages": result.total_pages,
@@ -49,7 +50,7 @@ async def search_page(request: Request) -> dict[str, object]:
     page_index = int(payload.get("page_index", 1) or 1)
     search_service = request.app.state.services["search_service"]
     try:
-        result = search_service.page(preview_id, page_index)
+        result = await run_in_threadpool(search_service.page, preview_id, page_index)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="Preview ?? h?t h?n ho?c kh?ng t?n t?i") from exc
     return {

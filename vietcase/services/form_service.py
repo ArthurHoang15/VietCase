@@ -9,6 +9,12 @@ from vietcase.schemas.filters import FilterOptions
 from vietcase.services.source_router import SourceContext, SourceRouter
 
 
+DEPENDENT_CHILDREN = {
+    "court_level": ["court"],
+    "case_style": ["legal_relation"],
+}
+
+
 class FormService:
     def __init__(self, source_router: SourceRouter) -> None:
         self.source_router = source_router
@@ -38,10 +44,15 @@ class FormService:
         payload = self.source_router.call("load_dependent_options", ctx, parent_field, parent_value, source_state)
         selects = payload.get("selects", {})
         fields = payload.get("fields", {})
-        values = dict((state or {}).get("values", {}))
+        values = dict((payload.get("state") or {}).get("values") or (state or {}).get("values", {}))
         values[parent_field] = parent_value
+        for child_key in DEPENDENT_CHILDREN.get(parent_field, []):
+            values.pop(child_key, None)
+        next_source_state = dict(payload.get("state", {}))
+        if next_source_state is not None:
+            next_source_state["values"] = values
         self._states[form_state_id] = {
-            "source_state": payload.get("state", {}),
+            "source_state": next_source_state,
             "source_mode": ctx.source_mode,
             "values": values,
             "expires_at": datetime.utcnow() + timedelta(seconds=self.settings.preview_state_ttl_seconds),

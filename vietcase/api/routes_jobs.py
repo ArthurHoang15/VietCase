@@ -14,10 +14,29 @@ def list_jobs(request: Request) -> list[dict]:
     return [with_job_display_fields(job) for job in jobs]
 
 
+@router.post("/delete-selected")
+async def delete_selected_jobs(request: Request) -> dict:
+    payload = await request.json()
+    service = request.app.state.services["job_service"]
+    return service.delete_jobs(payload.get("ids") or [])
+
+
+@router.post("/delete-all")
+def delete_all_jobs(request: Request) -> dict:
+    service = request.app.state.services["job_service"]
+    return service.delete_all_jobs()
+
+
 @router.get("/{job_id}")
 def get_job(job_id: int, request: Request) -> dict:
     job = request.app.state.services["job_service"].get_job(job_id)
     return with_job_display_fields(job) if job else {}
+
+
+@router.delete("/{job_id}")
+def delete_job(job_id: int, request: Request) -> dict:
+    service = request.app.state.services["job_service"]
+    return service.delete_job(job_id)
 
 
 @router.get("/{job_id}/items")
@@ -31,7 +50,7 @@ async def create_job(request: Request) -> dict:
     job_service = request.app.state.services["job_service"]
     job = job_service.create_job(
         mode=payload.get("mode", "preview_then_download"),
-        job_name=payload.get("job_name", "??t t?i VietCase"),
+        job_name=payload.get("job_name", "Đợt tải VietCase"),
         filters=payload.get("filters") or {},
         items=payload.get("items") or [],
     )

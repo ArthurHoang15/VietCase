@@ -63,9 +63,10 @@ class RequestsSourceClient:
         if parent_field not in fields:
             return self.load_filters()
         payload = self._base_payload(working_state)
-        values = dict(working_state.get("values", {}))
-        values[parent_field] = parent_value
-        self._apply_values_to_payload(payload, fields, values)
+        values = self._normalize_values(fields, dict(working_state.get("values", {})))
+        values[parent_field] = self._normalize_form_value(parent_field, parent_value)
+        self._reset_dependent_children(values, parent_field)
+        self._apply_values_to_payload(payload, fields, values, include_aliases=False)
         parent_name = fields[parent_field].get("name", "")
         if parent_name:
             payload["__EVENTTARGET"] = parent_name
@@ -86,18 +87,24 @@ class RequestsSourceClient:
 
     def search_preview(self, filters: dict[str, object], page_index: int = 1, state: dict[str, object] | None = None) -> dict[str, object]:
         working_state = deepcopy(state) if state else self.load_filters()["state"]
+        fields = working_state.get("fields", {})
         if page_index <= 1 or not working_state.get("searched"):
+            submitted_values = self._normalize_values(fields, filters)
             payload = self._base_payload(working_state)
-            self._apply_values_to_payload(payload, working_state.get("fields", {}), filters)
+            self._apply_values_to_payload(payload, fields, submitted_values, include_aliases=False)
             search_button_name = working_state.get("search_button_name", "")
             if search_button_name:
                 payload[search_button_name] = "Tìm kiếm"
             response, tls_mode = self._request("POST", SEARCH_URL, data=payload, tls_mode=working_state.get("tls_mode", "secure"))
         else:
+            submitted_values = self._normalize_values(fields, dict(working_state.get("values", {})) or filters)
             payload = self._base_payload(working_state)
+            self._apply_values_to_payload(payload, fields, submitted_values, include_aliases=True)
             pagination_name = working_state.get("pagination_name", "")
             if not pagination_name:
                 raise FallbackRequiredError("Pagination control missing from requests HTML")
+            payload["__EVENTTARGET"] = pagination_name
+            payload["__EVENTARGUMENT"] = ""
             payload[pagination_name] = str(page_index)
             response, tls_mode = self._request("POST", SEARCH_URL, data=payload, tls_mode=working_state.get("tls_mode", "secure"))
         html = self._response_text(response)
@@ -107,7 +114,7 @@ class RequestsSourceClient:
         if result["total_results"] == 0 and "List_group_pub" not in html:
             raise FallbackRequiredError("Search results DOM not present")
         parsed = self.form_parser.parse_form_state(html)
-        working_state.update(self._build_state(parsed, html, tls_mode, values=dict(filters), searched=True, current_page=page_index))
+        working_state.update(self._build_state(parsed, html, tls_mode, values=submitted_values, searched=True, current_page=page_index))
         time.sleep(self.settings.rate_limit_ms / 1000)
         return {
             **result,
@@ -145,19 +152,45 @@ class RequestsSourceClient:
         payload.setdefault("__EVENTARGUMENT", "")
         return payload
 
-    def _apply_values_to_payload(self, payload: dict[str, object], fields: dict[str, dict[str, object]], values: dict[str, object]) -> None:
+    def _apply_values_to_payload(
+        self,
+        payload: dict[str, object],
+        fields: dict[str, dict[str, object]],
+        values: dict[str, object],
+        *,
+        include_aliases: bool,
+    ) -> None:
         for logical_key, value in values.items():
             meta = fields.get(logical_key)
             if not meta:
                 continue
-            name = meta.get("name", "")
-            if not name:
+            names = self._resolve_field_names(meta, include_aliases=include_aliases)
+            if not names:
                 continue
             if isinstance(value, bool):
                 if value:
-                    payload[name] = "on"
-            elif value not in (None, ""):
-                payload[name] = self._normalize_form_value(logical_key, value)
+                    for name in names:
+                        payload[name] = "on"
+                continue
+            normalized_value = self._normalize_form_value(logical_key, value) if value not in (None, "") else ""
+            for name in names:
+                payload[name] = normalized_value
+
+    def _normalize_values(self, fields: dict[str, dict[str, object]], values: dict[str, object]) -> dict[str, object]:
+        normalized: dict[str, object] = {}
+        for logical_key, value in values.items():
+            if isinstance(value, bool):
+                normalized[logical_key] = value
+                continue
+            if value in (None, ""):
+                normalized[logical_key] = ""
+                continue
+            normalized[logical_key] = self._normalize_form_value(logical_key, value)
+        return normalized
+
+    def _reset_dependent_children(self, values: dict[str, object], parent_field: str) -> None:
+        for child_key in DEPENDENT_CHILDREN.get(parent_field, []):
+            values.pop(child_key, None)
 
     def _normalize_form_value(self, logical_key: str, value: object) -> object:
         if logical_key not in {'date_from', 'date_to'}:
@@ -182,6 +215,19 @@ class RequestsSourceClient:
             "tls_mode": tls_mode,
             "current_html": html,
         }
+
+    def _resolve_field_names(self, meta: dict[str, object], *, include_aliases: bool) -> list[str]:
+        names: list[str] = []
+        primary_name = str(meta.get("name", ""))
+        if primary_name and primary_name not in names:
+            names.append(primary_name)
+        if not include_aliases:
+            return names
+        for alias in meta.get("aliases", []):
+            name = str(alias.get("name", ""))
+            if name and name not in names:
+                names.append(name)
+        return names
 
     def _request(self, method: str, url: str, *, tls_mode: str | None = None, **kwargs) -> tuple[Response, str]:
         host = urlparse(url).netloc

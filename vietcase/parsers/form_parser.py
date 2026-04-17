@@ -1,7 +1,7 @@
 ﻿from __future__ import annotations
 
 import re
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 
 from bs4 import BeautifulSoup, Tag
 
@@ -18,6 +18,7 @@ class ParsedField:
     selector: str
     options: list[dict[str, str]]
     priority: int = 0
+    aliases: list[dict[str, object]] = field(default_factory=list)
 
 
 class FormParser:
@@ -83,9 +84,25 @@ class FormParser:
 
     def _store_field(self, fields: dict[str, dict[str, object]], field: ParsedField) -> None:
         current = fields.get(field.logical_key)
-        if current and int(current.get('priority', 0)) > field.priority:
-            return
-        fields[field.logical_key] = asdict(field)
+        incoming = asdict(field)
+        if current:
+            merged_aliases: dict[tuple[str, str], dict[str, object]] = {}
+            for alias in current.get('aliases', []):
+                merged_aliases[(str(alias.get('name', '')), str(alias.get('control_id', '')))] = alias
+            for alias in incoming.get('aliases', []):
+                merged_aliases[(str(alias.get('name', '')), str(alias.get('control_id', '')))] = alias
+            if int(current.get('priority', 0)) > field.priority:
+                current['aliases'] = sorted(
+                    merged_aliases.values(),
+                    key=lambda item: (-int(item.get('priority', 0)), str(item.get('name', ''))),
+                )
+                fields[field.logical_key] = current
+                return
+            incoming['aliases'] = sorted(
+                merged_aliases.values(),
+                key=lambda item: (-int(item.get('priority', 0)), str(item.get('name', ''))),
+            )
+        fields[field.logical_key] = incoming
 
     def _build_select_field(self, select: Tag) -> ParsedField | None:
         resolved = self._resolve_logical_key(select)
@@ -102,6 +119,7 @@ class FormParser:
             selector=f"#{control_id}" if control_id else f"select[name='{select.get('name', '')}']",
             options=[{'value': normalize_whitespace(option.get('value', '')), 'label': normalize_whitespace(option.get_text(' ', strip=True))} for option in select.select('option')],
             priority=priority,
+            aliases=[self._build_alias(select.get('name', ''), control_id, priority, 'select')],
         )
 
     def _build_input_field(self, control: Tag) -> ParsedField | None:
@@ -122,7 +140,18 @@ class FormParser:
             selector=f"#{control_id}" if control_id else f"input[name='{control.get('name', '')}']",
             options=[],
             priority=priority,
+            aliases=[self._build_alias(control.get('name', ''), control_id, priority, 'checkbox' if input_type == 'checkbox' else 'input')],
         )
+
+    def _build_alias(self, name: str, control_id: str, priority: int, kind: str) -> dict[str, object]:
+        selector = f"#{control_id}" if control_id else f"{'select' if kind == 'select' else 'input'}[name='{name}']"
+        return {
+            'name': name,
+            'control_id': control_id,
+            'selector': selector,
+            'priority': priority,
+            'kind': kind,
+        }
 
     def _resolve_logical_key(self, control: Tag) -> tuple[str, int] | None:
         control_id = control.get('id', '')

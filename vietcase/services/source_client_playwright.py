@@ -2,7 +2,7 @@
 
 import logging
 from contextlib import suppress
-from copy import deepcopy
+from datetime import datetime
 from typing import Any
 
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
@@ -42,8 +42,9 @@ class PlaywrightSourceClient:
         return {**parsed, "state": self._build_state(parsed, html)}
 
     def load_dependent_options(self, parent_field: str, parent_value: str, state: dict[str, object] | None = None) -> dict[str, object]:
-        values = dict((state or {}).get("values", {}))
-        values[parent_field] = parent_value
+        values = self._normalize_values(dict((state or {}).get("values", {})))
+        values[parent_field] = self._normalize_form_value(parent_field, parent_value)
+        self._reset_dependent_children(values, parent_field)
         html = self._run_search(values, submit=False)
         self._ensure_not_blocked(html, f'Playwright dependent dropdown blocked for {parent_field}')
         parsed = self.form_parser.parse_form_state(html)
@@ -55,13 +56,14 @@ class PlaywrightSourceClient:
         }
 
     def search_preview(self, filters: dict[str, object], page_index: int = 1, state: dict[str, object] | None = None) -> dict[str, object]:
-        html = self._run_search(filters, page_index=page_index, submit=True)
+        submitted_values = self._normalize_values(dict((state or {}).get("values", {})) or dict(filters)) if page_index > 1 and state else self._normalize_values(dict(filters))
+        html = self._run_search(submitted_values, page_index=page_index, submit=True)
         self._ensure_not_blocked(html, 'Playwright search preview blocked')
         parsed = self.listing_parser.parse(html, page_index=page_index)
         if parsed["total_results"] == 0 and "List_group_pub" not in html:
             raise FallbackRequiredError("Playwright could not load search results")
         form_state = self.form_parser.parse_form_state(html)
-        return {**parsed, "state": self._build_state(form_state, html, values=dict(filters), searched=True, current_page=page_index)}
+        return {**parsed, "state": self._build_state(form_state, html, values=submitted_values, searched=True, current_page=page_index)}
 
     def load_detail(self, source_url: str) -> dict[str, object]:
         html = self._fetch_page_html(source_url)
@@ -106,7 +108,8 @@ class PlaywrightSourceClient:
                 page.wait_for_load_state("networkidle")
 
     def _apply_filters(self, page: Any, fields: dict[str, dict[str, object]], filters: dict[str, object]) -> None:
-        for key, value in filters.items():
+        normalized_filters = self._normalize_values(dict(filters))
+        for key, value in normalized_filters.items():
             meta = fields.get(key)
             if not meta or value in (None, "", False):
                 continue
@@ -121,6 +124,33 @@ class PlaywrightSourceClient:
                 locator.check()
             else:
                 locator.fill(str(value))
+
+    def _normalize_values(self, values: dict[str, object]) -> dict[str, object]:
+        normalized: dict[str, object] = {}
+        for key, value in values.items():
+            if isinstance(value, bool):
+                normalized[key] = value
+                continue
+            if value in (None, ""):
+                normalized[key] = ""
+                continue
+            normalized[key] = self._normalize_form_value(key, value)
+        return normalized
+
+    def _reset_dependent_children(self, values: dict[str, object], parent_field: str) -> None:
+        for child_key in DEPENDENT_CHILDREN.get(parent_field, []):
+            values.pop(child_key, None)
+
+    def _normalize_form_value(self, logical_key: str, value: object) -> object:
+        if logical_key not in {"date_from", "date_to"}:
+            return value
+        text = str(value).strip()
+        for fmt in ("%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y", "%d.%m.%Y"):
+            try:
+                return datetime.strptime(text, fmt).strftime("%d/%m/%Y")
+            except ValueError:
+                continue
+        return text
 
     def _go_to_page(self, page: Any, page_index: int) -> None:
         if page_index <= 1:
