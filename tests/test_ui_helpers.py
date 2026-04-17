@@ -94,6 +94,43 @@ def test_with_job_display_fields_hides_non_delete_actions_for_completed_jobs() -
     assert payload["created_at_display"] == "18/04/2026 08:02:03"
 
 
+def test_with_job_display_fields_standardizes_actions_by_status() -> None:
+    paused = with_job_display_fields({"status": "paused"})
+    interrupted = with_job_display_fields({"status": "interrupted"})
+    running = with_job_display_fields({"status": "running"})
+    queued = with_job_display_fields({"status": "queued"})
+    cancelled = with_job_display_fields({"status": "cancelled"})
+
+    assert paused["can_resume"] is True
+    assert paused["can_pause"] is False
+    assert paused["can_cancel"] is True
+
+    assert interrupted["can_resume"] is True
+    assert interrupted["can_pause"] is False
+    assert interrupted["can_cancel"] is True
+
+    assert running["can_resume"] is False
+    assert running["can_pause"] is True
+    assert running["can_cancel"] is True
+
+    assert queued["can_resume"] is False
+    assert queued["can_pause"] is True
+    assert queued["can_cancel"] is True
+
+    assert cancelled["can_resume"] is False
+    assert cancelled["can_pause"] is False
+    assert cancelled["can_cancel"] is False
+
+
+def test_with_job_display_fields_adds_vietnamese_status_label() -> None:
+    assert with_job_display_fields({"status": "queued"})["status_display"] == "Đang chờ"
+    assert with_job_display_fields({"status": "running"})["status_display"] == "Đang chạy"
+    assert with_job_display_fields({"status": "paused"})["status_display"] == "Tạm dừng"
+    assert with_job_display_fields({"status": "cancelled"})["status_display"] == "Đã hủy"
+    assert with_job_display_fields({"status": "completed"})["status_display"] == "Hoàn tất"
+    assert with_job_display_fields({"status": "interrupted"})["status_display"] == "Bị gián đoạn"
+
+
 def test_pdf_file_name_prefers_document_number() -> None:
     service = PdfService()
     assert service._build_file_name("116/2026/DS-PT", "https://example.com/sample.pdf") == "116-2026-DS-PT.pdf"
@@ -303,6 +340,52 @@ def test_delete_document_removes_file_copy_and_canonical_when_last_copy(tmp_path
     assert pdf_path.exists() is False
     assert service.search_document_files(page=1, page_size=10)["items"] == []
     assert service.list_documents() == []
+
+
+def test_cancelled_job_cannot_be_resumed_and_paused_job_can_be_resumed(tmp_path, monkeypatch) -> None:
+    configure_temp_settings(tmp_path, monkeypatch)
+    init_db()
+    service = JobService(DummySearchService(), DummyDetailService(), DummyPdfService())
+    monkeypatch.setattr(service, "start_job", lambda job_id: None)
+
+    cancelled = service.create_job(mode="preview_then_download", job_name="Cancelled job")
+    paused = service.create_job(mode="preview_then_download", job_name="Paused job")
+
+    with sqlite3.connect(service.settings.db_path) as conn:
+        conn.execute("UPDATE download_jobs SET status = 'cancelled' WHERE id = ?", (int(cancelled["id"]),))
+        conn.execute("UPDATE download_jobs SET status = 'paused' WHERE id = ?", (int(paused["id"]),))
+        conn.commit()
+
+    service.resume_job(int(cancelled["id"]))
+    service.resume_job(int(paused["id"]))
+
+    assert service.get_job(int(cancelled["id"]))["status"] == "cancelled"
+    assert service.get_job(int(paused["id"]))["status"] == "queued"
+
+
+def test_pause_and_cancel_follow_standardized_transitions(tmp_path, monkeypatch) -> None:
+    configure_temp_settings(tmp_path, monkeypatch)
+    init_db()
+    service = JobService(DummySearchService(), DummyDetailService(), DummyPdfService())
+
+    running = service.create_job(mode="preview_then_download", job_name="Running job")
+    paused = service.create_job(mode="preview_then_download", job_name="Paused job")
+    completed = service.create_job(mode="preview_then_download", job_name="Completed job")
+
+    with sqlite3.connect(service.settings.db_path) as conn:
+        conn.execute("UPDATE download_jobs SET status = 'running' WHERE id = ?", (int(running["id"]),))
+        conn.execute("UPDATE download_jobs SET status = 'paused' WHERE id = ?", (int(paused["id"]),))
+        conn.execute("UPDATE download_jobs SET status = 'completed' WHERE id = ?", (int(completed["id"]),))
+        conn.commit()
+
+    service.pause_job(int(running["id"]))
+    service.pause_job(int(paused["id"]))
+    service.cancel_job(int(paused["id"]))
+    service.cancel_job(int(completed["id"]))
+
+    assert service.get_job(int(running["id"]))["status"] == "paused"
+    assert service.get_job(int(paused["id"]))["status"] == "cancelled"
+    assert service.get_job(int(completed["id"]))["status"] == "completed"
 
 
 def test_delete_document_keeps_canonical_and_file_when_other_copy_exists(tmp_path, monkeypatch) -> None:

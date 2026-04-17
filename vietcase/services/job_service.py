@@ -81,7 +81,7 @@ class JobService:
         thread.start()
 
     def resume_job(self, job_id: int) -> None:
-        if self._job_status(job_id) == "completed":
+        if self._job_status(job_id) not in {"paused", "interrupted"}:
             return
         with connect() as conn:
             conn.execute("UPDATE download_jobs SET status = 'queued', updated_at = CURRENT_TIMESTAMP WHERE id = ?", (job_id,))
@@ -89,14 +89,14 @@ class JobService:
         self.start_job(job_id)
 
     def pause_job(self, job_id: int) -> None:
-        if self._job_status(job_id) == "completed":
+        if self._job_status(job_id) not in {"queued", "running"}:
             return
         with connect() as conn:
             conn.execute("UPDATE download_jobs SET status = 'paused', updated_at = CURRENT_TIMESTAMP WHERE id = ?", (job_id,))
             conn.commit()
 
     def cancel_job(self, job_id: int) -> None:
-        if self._job_status(job_id) == "completed":
+        if self._job_status(job_id) not in {"queued", "running", "paused", "interrupted"}:
             return
         with connect() as conn:
             conn.execute("UPDATE download_jobs SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP WHERE id = ?", (job_id,))

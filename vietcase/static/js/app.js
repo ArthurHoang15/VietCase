@@ -496,9 +496,10 @@ function renderJobs(jobs) {
   container.innerHTML = jobs.map((job) => {
     const jobId = Number(job.id);
     const checked = jobsState.selectedIds.has(jobId) ? "checked" : "";
-    const canResume = Boolean(job.can_resume ?? String(job.status || "").toLowerCase() !== "completed");
-    const canPause = Boolean(job.can_pause ?? String(job.status || "").toLowerCase() !== "completed");
-    const canCancel = Boolean(job.can_cancel ?? String(job.status || "").toLowerCase() !== "completed");
+    const status = String(job.status || "").toLowerCase();
+    const canResume = Boolean(job.can_resume ?? ["paused", "interrupted"].includes(status));
+    const canPause = Boolean(job.can_pause ?? ["queued", "running"].includes(status));
+    const canCancel = Boolean(job.can_cancel ?? ["queued", "running", "paused", "interrupted"].includes(status));
     return `
       <article class="result-card job-card">
         <header>
@@ -512,7 +513,7 @@ function renderJobs(jobs) {
           </div>
         </header>
         <div class="meta-grid jobs-grid">
-          <div><strong>Trạng thái:</strong> ${escapeHtml(job.status || "")}</div>
+          <div><strong>Trạng thái:</strong> ${escapeHtml(job.status_display || job.status || "")}</div>
           <div><strong>Tiến độ:</strong> ${escapeHtml(`${job.items_completed || 0}/${job.items_total || 0}`)}</div>
           <div><strong>Lỗi:</strong> ${escapeHtml(job.items_failed || 0)}</div>
           <div><strong>Trang đã xử lý:</strong> ${escapeHtml(job.last_processed_page || 0)}</div>

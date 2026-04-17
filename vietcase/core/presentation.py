@@ -5,6 +5,14 @@ from pathlib import Path
 
 
 LOCAL_TIMEZONE = timezone(timedelta(hours=7))
+JOB_STATUS_LABELS = {
+    "queued": "Đang chờ",
+    "running": "Đang chạy",
+    "paused": "Tạm dừng",
+    "cancelled": "Đã hủy",
+    "completed": "Hoàn tất",
+    "interrupted": "Bị gián đoạn",
+}
 
 
 def format_display_date(value: str | None) -> str:
@@ -104,7 +112,8 @@ def with_job_display_fields(job: dict) -> dict:
     for key in ("created_at", "started_at", "finished_at", "updated_at"):
         payload[f"{key}_display"] = format_display_datetime(str(payload.get(key) or ""))
     status = str(payload.get("status") or "").strip().lower()
-    payload["can_resume"] = status != "completed"
-    payload["can_pause"] = status != "completed"
-    payload["can_cancel"] = status != "completed"
+    payload["status_display"] = JOB_STATUS_LABELS.get(status, str(payload.get("status") or ""))
+    payload["can_resume"] = status in {"paused", "interrupted"}
+    payload["can_pause"] = status in {"queued", "running"}
+    payload["can_cancel"] = status in {"queued", "running", "paused", "interrupted"}
     return payload

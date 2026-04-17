@@ -27,7 +27,7 @@
         </div>
       </header>
       <div class="meta-grid jobs-grid">
-        <div><strong>Trạng thái:</strong> {{ job.status }}</div>
+        <div><strong>Trạng thái:</strong> {{ job.status_display or job.status }}</div>
         <div><strong>Tiến độ:</strong> {{ job.items_completed }}/{{ job.items_total }}</div>
         <div><strong>Lỗi:</strong> {{ job.items_failed }}</div>
         <div><strong>Trang đã xử lý:</strong> {{ job.last_processed_page }}</div>
