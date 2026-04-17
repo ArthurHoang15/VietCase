@@ -496,6 +496,9 @@ function renderJobs(jobs) {
   container.innerHTML = jobs.map((job) => {
     const jobId = Number(job.id);
     const checked = jobsState.selectedIds.has(jobId) ? "checked" : "";
+    const canResume = Boolean(job.can_resume ?? String(job.status || "").toLowerCase() !== "completed");
+    const canPause = Boolean(job.can_pause ?? String(job.status || "").toLowerCase() !== "completed");
+    const canCancel = Boolean(job.can_cancel ?? String(job.status || "").toLowerCase() !== "completed");
     return `
       <article class="result-card job-card">
         <header>
@@ -515,9 +518,9 @@ function renderJobs(jobs) {
           <div><strong>Trang đã xử lý:</strong> ${escapeHtml(job.last_processed_page || 0)}</div>
         </div>
         <div class="button-row tight">
-          <button class="ghost" data-job-action="resume" data-id="${jobId}">Tiếp tục</button>
-          <button class="ghost" data-job-action="pause" data-id="${jobId}">Tạm dừng</button>
-          <button class="ghost" data-job-action="cancel" data-id="${jobId}">Hủy</button>
+          ${canResume ? `<button class="ghost" data-job-action="resume" data-id="${jobId}">Tiếp tục</button>` : ""}
+          ${canPause ? `<button class="ghost" data-job-action="pause" data-id="${jobId}">Tạm dừng</button>` : ""}
+          ${canCancel ? `<button class="ghost" data-job-action="cancel" data-id="${jobId}">Hủy</button>` : ""}
           <button class="ghost" data-job-action="delete" data-id="${jobId}">Xóa</button>
         </div>
       </article>

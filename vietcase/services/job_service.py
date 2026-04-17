@@ -81,17 +81,23 @@ class JobService:
         thread.start()
 
     def resume_job(self, job_id: int) -> None:
+        if self._job_status(job_id) == "completed":
+            return
         with connect() as conn:
             conn.execute("UPDATE download_jobs SET status = 'queued', updated_at = CURRENT_TIMESTAMP WHERE id = ?", (job_id,))
             conn.commit()
         self.start_job(job_id)
 
     def pause_job(self, job_id: int) -> None:
+        if self._job_status(job_id) == "completed":
+            return
         with connect() as conn:
             conn.execute("UPDATE download_jobs SET status = 'paused', updated_at = CURRENT_TIMESTAMP WHERE id = ?", (job_id,))
             conn.commit()
 
     def cancel_job(self, job_id: int) -> None:
+        if self._job_status(job_id) == "completed":
+            return
         with connect() as conn:
             conn.execute("UPDATE download_jobs SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP WHERE id = ?", (job_id,))
             conn.commit()
@@ -102,6 +108,10 @@ class JobService:
     def get_job(self, job_id: int) -> dict:
         row = execute_fetchone("SELECT * FROM download_jobs WHERE id = ?", (job_id,))
         return dict(row) if row else {}
+
+    def _job_status(self, job_id: int) -> str:
+        row = execute_fetchone("SELECT status FROM download_jobs WHERE id = ?", (job_id,))
+        return str(row["status"] if row and row["status"] is not None else "")
 
     def list_job_items(self, job_id: int) -> list[dict]:
         return [dict(row) for row in execute_fetchall("SELECT * FROM job_items WHERE job_id = ? ORDER BY page_index, result_index, id", (job_id,))]

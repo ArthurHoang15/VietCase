@@ -33,9 +33,9 @@
         <div><strong>Trang đã xử lý:</strong> {{ job.last_processed_page }}</div>
       </div>
       <div class="button-row tight">
-        <button class="ghost" data-job-action="resume" data-id="{{ job.id }}">Tiếp tục</button>
-        <button class="ghost" data-job-action="pause" data-id="{{ job.id }}">Tạm dừng</button>
-        <button class="ghost" data-job-action="cancel" data-id="{{ job.id }}">Hủy</button>
+        {% if job.can_resume %}<button class="ghost" data-job-action="resume" data-id="{{ job.id }}">Tiếp tục</button>{% endif %}
+        {% if job.can_pause %}<button class="ghost" data-job-action="pause" data-id="{{ job.id }}">Tạm dừng</button>{% endif %}
+        {% if job.can_cancel %}<button class="ghost" data-job-action="cancel" data-id="{{ job.id }}">Hủy</button>{% endif %}
         <button class="ghost" data-job-action="delete" data-id="{{ job.id }}">Xóa</button>
       </div>
     </article>

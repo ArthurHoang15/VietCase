@@ -103,4 +103,8 @@ def with_job_display_fields(job: dict) -> dict:
     payload = dict(job)
     for key in ("created_at", "started_at", "finished_at", "updated_at"):
         payload[f"{key}_display"] = format_display_datetime(str(payload.get(key) or ""))
+    status = str(payload.get("status") or "").strip().lower()
+    payload["can_resume"] = status != "completed"
+    payload["can_pause"] = status != "completed"
+    payload["can_cancel"] = status != "completed"
     return payload

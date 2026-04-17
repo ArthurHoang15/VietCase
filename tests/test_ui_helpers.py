@@ -11,6 +11,7 @@ from vietcase.core.presentation import (
     format_display_date,
     format_display_datetime,
     with_document_display_fields,
+    with_job_display_fields,
 )
 from vietcase.db.migrations import init_db
 from vietcase.services.job_service import JobService
@@ -83,6 +84,14 @@ def test_with_document_display_fields_builds_fallback_title_from_metadata() -> N
     )
     assert payload["issued_date_display"] == "27/03/2026"
     assert payload["published_date_display"] == "11/04/2026"
+
+
+def test_with_job_display_fields_hides_non_delete_actions_for_completed_jobs() -> None:
+    payload = with_job_display_fields({"status": "completed", "created_at": "2026-04-18T01:02:03Z"})
+    assert payload["can_resume"] is False
+    assert payload["can_pause"] is False
+    assert payload["can_cancel"] is False
+    assert payload["created_at_display"] == "18/04/2026 08:02:03"
 
 
 def test_pdf_file_name_prefers_document_number() -> None:
@@ -350,3 +359,24 @@ def test_job_folder_path_uses_timestamp_and_suffix_on_collision(tmp_path, monkey
 
     assert first_folder.name == "16-04-2026-09-14"
     assert second_folder.name == "16-04-2026-09-14__2"
+
+
+def test_completed_job_actions_are_noop(tmp_path, monkeypatch) -> None:
+    configure_temp_settings(tmp_path, monkeypatch)
+    init_db()
+    service = JobService(DummySearchService(), DummyDetailService(), DummyPdfService())
+
+    job = service.create_job(mode="preview_then_download", job_name="Job hoàn tất", items=[])
+    job_id = int(job["id"])
+    with sqlite3.connect(service.settings.db_path) as conn:
+        conn.execute("UPDATE download_jobs SET status = 'completed' WHERE id = ?", (job_id,))
+        conn.commit()
+
+    service.resume_job(job_id)
+    assert service.get_job(job_id)["status"] == "completed"
+
+    service.pause_job(job_id)
+    assert service.get_job(job_id)["status"] == "completed"
+
+    service.cancel_job(job_id)
+    assert service.get_job(job_id)["status"] == "completed"
