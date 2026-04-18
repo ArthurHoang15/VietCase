@@ -11,6 +11,11 @@ Nếu bạn muốn hướng dẫn rất dễ làm theo cho người không rành
 
 - [HUONG_DAN_CHI_TIET.md](HUONG_DAN_CHI_TIET.md)
 
+Trong file hướng dẫn chi tiết đã có cả phần:
+
+- cách tải dự án từ GitHub bằng `Download ZIP`
+- ảnh minh họa chỗ bấm nút `Code` và `Download ZIP`
+
 ## Chạy nhanh
 
 ### 1. Cài thư viện
