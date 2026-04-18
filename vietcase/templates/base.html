@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}VietCase{% endblock %}</title>
+  <link rel="stylesheet" href="/static/css/app.css?v=20260418-nav2">
+</head>
+<body>
+  <header class="site-header">
+    <div class="brand-wrap">
+      <div class="brand-mark">VC</div>
+      <div>
+        <div class="eyebrow">Công cụ tìm kiếm và tải PDF bản án, quyết định</div>
+        <h1>VietCase</h1>
+      </div>
+    </div>
+    <nav class="site-nav">
+      <a href="/" class="site-nav-link {% if page == 'index' %}active{% endif %}" {% if page == 'index' %}aria-current="page"{% endif %}>Tìm kiếm</a>
+      <a href="/jobs" class="site-nav-link {% if page == 'jobs' %}active{% endif %}" {% if page == 'jobs' %}aria-current="page"{% endif %}>Lịch sử tải</a>
+      <a href="/documents" class="site-nav-link {% if page == 'documents' %}active{% endif %}" {% if page == 'documents' %}aria-current="page"{% endif %}>Tài liệu đã tải</a>
+    </nav>
+  </header>
+
+  <section class="legal-note">
+    Dữ liệu được truy xuất từ cổng công bố bản án, quyết định của Tòa án. Người dùng cần tự rà soát quy định sử dụng, lưu trữ, chia sẻ và tái công bố dữ liệu.
+  </section>
+
+  <main class="page-shell">
+    {% block content %}{% endblock %}
+  </main>
+
+  <div id="confirm-modal" class="modal-shell hidden" aria-hidden="true">
+    <div class="modal-backdrop" data-modal-close></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title">
+      <div class="modal-title" id="confirm-modal-title">Xác nhận thao tác</div>
+      <p id="confirm-modal-message" class="modal-message"></p>
+      <div class="button-row modal-actions">
+        <button type="button" id="confirm-modal-cancel" class="ghost">Hủy</button>
+        <button type="button" id="confirm-modal-submit" class="primary danger">Xác nhận</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="loading-modal" class="modal-shell hidden" aria-hidden="true">
+    <div class="modal-backdrop"></div>
+    <div class="modal-card loading-card" role="status" aria-live="polite">
+      <div class="loading-spinner" aria-hidden="true"></div>
+      <div class="modal-title">Đang xử lý</div>
+      <p id="loading-modal-message" class="modal-message">Đang tải dữ liệu...</p>
+    </div>
+  </div>
+
+  <script src="/static/js/app.js?v=20260418-searchperf1"></script>
+</body>
+</html>

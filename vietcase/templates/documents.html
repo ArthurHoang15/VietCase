@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}VietCase | Tài liệu đã tải{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head split">
+    <div>
+      <div class="panel-title">Tài liệu đã tải</div>
+      <p class="muted">Lọc và tìm lại các file PDF đã tải trên máy theo nội dung hiển thị của web nguồn và text trích từ PDF.</p>
+      <p id="documents-selection-note" class="muted">Chưa chọn tài liệu nào.</p>
+    </div>
+    <div class="button-row tight">
+      <button type="button" id="documents-delete-selected" class="ghost">Xóa đã chọn</button>
+      <button type="button" id="documents-delete-all" class="ghost">Xóa tất cả</button>
+    </div>
+  </div>
+  <form id="documents-filter-form" class="search-grid documents-filter-grid">
+    <label class="field-span-3">
+      <span>Từ khóa</span>
+      <input id="documents-keyword" type="text" placeholder="Nhập tiêu đề, số văn bản, tòa án, quan hệ pháp luật hoặc nội dung PDF">
+    </label>
+    <label>
+      <span>Loại văn bản</span>
+      <select id="documents-document-type">
+        <option value="">-----chọn-----</option>
+        {% for option in document_filter_options.document_type %}
+        <option value="{{ option.value }}">{{ option.label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
+      <span>Tòa án</span>
+      <select id="documents-court-name">
+        <option value="">-----chọn-----</option>
+        {% for option in document_filter_options.court_name %}
+        <option value="{{ option.value }}">{{ option.label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
+      <span>Loại vụ việc</span>
+      <select id="documents-case-style">
+        <option value="">-----chọn-----</option>
+        {% for option in document_filter_options.case_style %}
+        <option value="{{ option.value }}">{{ option.label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
+      <span>Quan hệ pháp luật</span>
+      <select id="documents-legal-relation">
+        <option value="">-----chọn-----</option>
+        {% for option in document_filter_options.legal_relation %}
+        <option value="{{ option.value }}">{{ option.label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
+      <span>Từ ngày</span>
+      <input id="documents-date-from" type="text" placeholder="dd/MM/yyyy">
+    </label>
+    <label>
+      <span>Đến ngày</span>
+      <input id="documents-date-to" type="text" placeholder="dd/MM/yyyy">
+    </label>
+    <div class="button-row actions-row field-span-3">
+      <button type="reset" class="ghost">Xóa điều kiện</button>
+    </div>
+  </form>
+  <p id="documents-filter-count" class="muted filter-note">Đang hiển thị {{ documents|length }} trên tổng {{ documents_total }} file đã tải.</p>
+</section>
+
+<section class="panel">
+  <div id="documents-list" class="result-list">
+    {% for document in documents %}
+    <article class="result-card source-card">
+      <header>
+        <div>
+          <div class="card-title">{{ document.display_title }}</div>
+          {% if document.published_date_dot_display %}<div class="published-chip">({{ document.published_date_dot_display }})</div>{% endif %}
+        </div>
+        <label><input type="checkbox" class="document-selector" data-id="{{ document.id }}"> Chọn</label>
+      </header>
+      <div class="source-card-lines">
+        {% if document.legal_relation %}<div class="source-line"><strong>Quan hệ pháp luật:</strong> {{ document.legal_relation }}</div>{% endif %}
+        <div class="source-row">
+          {% if document.adjudication_level %}<div class="source-col"><strong>Cấp xét xử:</strong> {{ document.adjudication_level }}</div>{% endif %}
+          {% if document.precedent_applied %}<div class="source-col"><strong>Áp dụng án lệ:</strong> {{ document.precedent_applied }}</div>{% endif %}
+        </div>
+        <div class="source-row">
+          {% if document.case_style %}<div class="source-col"><strong>Loại vụ/việc:</strong> {{ document.case_style }}</div>{% endif %}
+          {% if document.correction_count %}<div class="source-col"><strong>Đính chính:</strong> {{ document.correction_count }}</div>{% endif %}
+        </div>
+        {% if document.summary_text %}<div class="source-line"><strong>Thông tin về vụ/việc:</strong> {{ document.summary_text }}</div>{% endif %}
+        {% if document.precedent_vote_count %}<div class="source-line"><strong>Tổng số lượt được bình chọn làm nguồn phát triển án lệ:</strong> {{ document.precedent_vote_count }}</div>{% endif %}
+      </div>
+      <div class="button-row tight top-space">
+        {% if document.file_exists %}
+        <a href="/api/documents/{{ document.id }}/open-file" target="_blank" rel="noopener noreferrer">Mở tài liệu</a>
+        {% else %}
+        <span class="muted">File không còn trên máy</span>
+        {% endif %}
+        <button type="button" class="ghost" data-document-action="delete" data-id="{{ document.id }}">Xóa</button>
+      </div>
+    </article>
+    {% else %}
+    <div class="empty-state">Chưa có file nào được tải.</div>
+    {% endfor %}
+  </div>
+  <div id="documents-pagination" class="pagination hidden">
+    <button type="button" id="documents-prev-page" class="ghost">Trang trước</button>
+    <div class="page-indicator">Trang <span id="documents-current-page">1</span> / <span id="documents-page-count">1</span></div>
+    <label class="page-jump">
+      <span>Đến trang</span>
+      <input id="documents-page-input" type="number" min="1" value="1">
+    </label>
+    <button type="button" id="documents-jump-page" class="ghost">Đi</button>
+    <button type="button" id="documents-next-page" class="ghost">Trang sau</button>
+  </div>
+</section>
+{% endblock %}
