@@ -81,7 +81,8 @@ def open_file(document_id: int, request: Request) -> FileResponse:
     return FileResponse(
         path,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'inline; filename="{path.name}"'},
+        filename=path.name,
+        content_disposition_type="inline",
     )
 
 
@@ -91,4 +92,4 @@ def download_file(document_id: int, request: Request) -> FileResponse:
     path = Path(document.get("pdf_path", ""))
     if not path.exists():
         raise HTTPException(status_code=404, detail="Khong tim thay file PDF tren may")
-    return FileResponse(path, filename=path.name)
+    return FileResponse(path, filename=path.name, content_disposition_type="attachment")

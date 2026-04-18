@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 
 from vietcase.core.config import get_settings
-from vietcase.core.text_utils import build_search_text, normalize_for_search
+from vietcase.core.text_utils import build_search_text, extract_strong_document_number, infer_document_type, normalize_for_search
 from vietcase.db.sqlite import connect, execute_fetchall, execute_fetchone
 from vietcase.services.detail_service import DetailService
 from vietcase.services.pdf_service import PdfService
@@ -180,7 +180,7 @@ class JobService:
     ) -> dict[str, object]:
         page = max(1, int(page or 1))
         page_size = max(1, min(100, int(page_size or 10)))
-        rows = [dict(row) for row in execute_fetchall(
+        rows = [self._decorate_document_row(dict(row)) for row in execute_fetchall(
             """
             SELECT
                 df.id,
@@ -378,6 +378,8 @@ class JobService:
                     detail["pdf_url"],
                     job_folder,
                     detail.get("document_number", "") or item.get("document_number", ""),
+                    title=str(detail.get("title") or item.get("title") or ""),
+                    source_card_text=str(item.get("source_card_text") or detail.get("source_card_text") or ""),
                 )
                 self._mark_item_completed(job_id, item, detail, saved, download_ctx.source_mode, job_folder)
             except Exception as exc:
@@ -440,7 +442,9 @@ class JobService:
 
     def _mark_item_completed(self, job_id: int, item: dict, detail: dict, saved: dict, source_mode: str, job_folder: Path) -> None:
         title_value = str(detail.get("title") or item.get("title") or "").strip()
-        resolved_number = str(saved.get("resolved_document_number") or detail.get("document_number") or item.get("document_number") or "").strip()
+        resolved_number = str(saved.get("resolved_document_number") or "").strip()
+        if not resolved_number:
+            resolved_number = extract_strong_document_number(detail.get("document_number") or item.get("document_number") or "")
         source_card_text = str(item.get("source_card_text") or detail.get("source_card_text") or "").strip()
         source_card_html = str(item.get("source_card_html") or detail.get("source_card_html") or "").strip()
         pdf_text = str(saved.get("pdf_text") or "")
@@ -680,6 +684,17 @@ class JobService:
     def _distinct_values(self, rows: list[dict], key: str) -> list[dict[str, str]]:
         values = sorted({str(row.get(key) or "").strip() for row in rows if str(row.get(key) or "").strip()})
         return [{"value": value, "label": value} for value in values]
+
+    def _decorate_document_row(self, row: dict) -> dict:
+        payload = dict(row)
+        inferred_type = infer_document_type(
+            payload.get("title", ""),
+            payload.get("source_card_text", ""),
+            payload.get("document_type", ""),
+        )
+        if inferred_type:
+            payload["document_type"] = inferred_type
+        return payload
 
     def _normalize_ids(self, values: list[int] | tuple[int, ...]) -> list[int]:
         normalized: list[int] = []

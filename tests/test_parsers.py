@@ -251,6 +251,22 @@ LISTING_HTML = """
 </div>
 """
 
+LISTING_HTML_WITH_WEAK_NUMBER = """
+<div id="ctl00_Content_home_Public_ctl00_lbl_count_record">1</div>
+<div id="ctl00_Content_home_Public_ctl00_LbShowtotal">1</div>
+<div id="List_group_pub">
+  <a class="echo_id_pub" href="/2ta200/chi-tiet-ban-an">
+    <h4 class="list-group-item-heading">
+      <label>Quyết định:</label>
+      <span>số 03 ngày 20/01/2026 của Tòa Phúc thẩm Tòa án nhân dân tối cao tại Hà Nội <time>(26.03.2026)</time></span>
+    </h4>
+  </a>
+  <div class="row">
+    <div class="col-md-12"><p><label>Quan hệ pháp luật:</label><span>Tranh chấp mẫu</span></p></div>
+  </div>
+</div>
+"""
+
 SEARCH_RESULTS_WITH_SELECTION_PAGE = SEARCH_RESULTS_WITH_SELECTION_HTML + LISTING_HTML
 
 DETAIL_JUDGMENT_HTML = """
@@ -281,6 +297,20 @@ DETAIL_DECISION_HTML = """
   <li class="list-group-item">Đính chính: 0</li>
 </ul>
 <a href="/xuatfile/quyetdinh.pdf">PDF</a>
+"""
+
+DETAIL_DECISION_WITH_WEAK_HEADING_HTML = """
+<html>
+  <head><title>Bản án số: 03 ngày 20/01/2026</title></head>
+  <body>
+    <ul>
+      <li class="list-group-item">Tên quyết định: Bản án số: 03 ngày 20/01/2026</li>
+      <li class="list-group-item">Ngày ban hành: 20/01/2026</li>
+      <li class="list-group-item">Tòa án: Tòa Phúc thẩm Tòa án nhân dân tối cao tại Hà Nội</li>
+    </ul>
+    <a href="/xuatfile/sample.pdf">PDF</a>
+  </body>
+</html>
 """
 
 
@@ -335,6 +365,12 @@ def test_listing_parser_extracts_source_card_metadata() -> None:
     assert record["page_index"] == 2
 
 
+def test_listing_parser_ignores_weak_document_numbers() -> None:
+    parser = ListingParser()
+    payload = parser.parse(LISTING_HTML_WITH_WEAK_NUMBER, page_index=1)
+    assert payload["results"][0]["document_number"] == ""
+
+
 def test_detail_parser_dispatches_judgment() -> None:
     parser = DetailCommonParser()
     payload = parser.parse(DETAIL_JUDGMENT_HTML, "https://example.com/ban-an")
@@ -354,6 +390,12 @@ def test_detail_parser_dispatches_decision() -> None:
     assert payload["document_number"] == "15/2026/QĐ-PT"
     assert payload["precedent_applied"] == "Không"
     assert payload["pdf_url"].endswith("quyetdinh.pdf")
+
+
+def test_detail_parser_keeps_document_number_empty_when_heading_number_is_weak() -> None:
+    parser = DetailCommonParser()
+    payload = parser.parse(DETAIL_DECISION_WITH_WEAK_HEADING_HTML, "https://example.com/quyet-dinh-weak")
+    assert payload["document_number"] == ""
 
 
 def test_source_router_uses_playwright_for_search_actions_when_context_requests_it() -> None:

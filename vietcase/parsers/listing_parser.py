@@ -5,7 +5,7 @@ from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup, Tag
 
-from vietcase.core.text_utils import normalize_for_search
+from vietcase.core.text_utils import extract_strong_document_number, normalize_for_search
 from vietcase.parsers.compatibility import (
     BASE_URL,
     extract_regex,
@@ -57,10 +57,7 @@ class ListingParser:
             extract_regex(r"(\d{1,2}[\./]\d{1,2}[\./]\d{4})", title_text),
         ]))
         document_type = heading_label_text or self._document_type_from_title(title_text)
-        document_number = first_present([
-            extract_regex(r"s\u1ed1\s+(.+?)\s+ng\u00e0y", title, flags=re.IGNORECASE),
-            extract_regex(r"([0-9][0-9A-Za-z.\-/]*(?:/[0-9A-Za-z.\-]+)+)", title),
-        ])
+        document_number = self._extract_document_number(title, title_text)
         court_name = first_present([
             extract_regex(r"c\u1ee7a\s+(.+?)(?:\(|$)", title, flags=re.IGNORECASE),
             extract_regex(r"cua\s+(.+?)(?:\(|$)", title, flags=re.IGNORECASE),
@@ -170,4 +167,11 @@ class ListingParser:
             return "Quy\u1ebft \u0111\u1ecbnh"
         if "ban an" in normalized:
             return "B\u1ea3n \u00e1n"
+        return ""
+
+    def _extract_document_number(self, *candidates: str) -> str:
+        for candidate in candidates:
+            extracted = extract_strong_document_number(candidate)
+            if extracted:
+                return extracted
         return ""

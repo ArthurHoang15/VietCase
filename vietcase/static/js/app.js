@@ -329,6 +329,7 @@ function selectedItems() {
 
 async function createJob(payload) {
   await requestJson("/api/jobs", { method: "POST", body: JSON.stringify(payload) });
+  window.location.assign("/jobs");
 }
 
 function initializeSearchPage() {

@@ -2,7 +2,9 @@
 
 import sqlite3
 from pathlib import Path
+from types import SimpleNamespace
 
+import vietcase.api.routes_documents as routes_documents
 import vietcase.db.sqlite as sqlite_module
 import vietcase.services.job_service as job_service_module
 from vietcase.core.config import Settings
@@ -29,7 +31,15 @@ class DummyDetailService:
 
 
 class DummyPdfService:
-    def save_pdf(self, pdf_url: str, job_folder, document_number: str = "") -> dict[str, str]:
+    def save_pdf(
+        self,
+        pdf_url: str,
+        job_folder,
+        document_number: str = "",
+        *,
+        title: str = "",
+        source_card_text: str = "",
+    ) -> dict[str, str]:
         return {
             "pdf_path": str(job_folder / "dummy.pdf"),
             "file_name_original": "dummy.pdf",
@@ -165,6 +175,45 @@ def test_pdf_document_number_is_extracted_from_pdf_text() -> None:
     service = PdfService()
     assert service._extract_document_number_from_pdf_text("Bản án số 116/2026/DS-PT ngày 09/02/2026") == "116/2026/DS-PT"
     assert service._extract_document_number_from_pdf_text("Quyết định số 13/2026/QĐ-PT ngày 27/03/2026") == "13/2026/QĐ-PT"
+
+
+def test_pdf_document_number_stops_before_national_motto_text() -> None:
+    service = PdfService()
+    text = "Số: 01/2026/QĐ-PT CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM Độc lập - Tự do - Hạnh phúc Đà Nẵng, ngày 19 tháng 1 năm 2026"
+    assert service._extract_document_number_from_pdf_text(text) == "01/2026/QĐ-PT"
+
+
+def test_pdf_document_number_prefers_header_number_over_body_reference() -> None:
+    service = PdfService()
+    text = (
+        "TÒA PHÚC THẨM TÒA ÁN NHÂN DÂN TỐI CAO TẠI ĐÀ NẴNG "
+        "Số: 02/2026/QĐ-DSPT CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM "
+        "Độc lập - Tự do - Hạnh phúc Đà Nẵng, ngày 20 tháng 01 năm 2026 "
+        "QUYẾT ĐỊNH GIẢI QUYẾT VIỆC KHÁNG CÁO "
+        "Trong hồ sơ khác có Quyết định số 119 A/QĐ-CA ngày 10/11/2025."
+    )
+    assert service._extract_document_number_from_pdf_text(text) == "02/2026/QĐ-DSPT"
+
+
+def test_pdf_document_number_reliability_rejects_weak_short_numbers() -> None:
+    service = PdfService()
+    assert service._is_reliable_document_number("12/2026/DS-PT") is True
+    assert service._is_reliable_document_number("02/2026/QĐ-DSPT") is True
+    assert service._is_reliable_document_number("03") is False
+    assert service._is_reliable_document_number("55") is False
+    assert service._is_reliable_document_number("06/2026") is False
+
+
+def test_pdf_resolved_document_number_uses_cleaned_strong_metadata_fallback() -> None:
+    service = PdfService()
+    assert service._resolve_document_number("", "12/2026/QĐPT-DS Hà Nội,") == "12/2026/QĐPT-DS"
+
+
+def test_pdf_file_name_falls_back_to_cleaned_title_when_number_missing() -> None:
+    service = PdfService()
+    fallback = service._build_metadata_fallback_name("Bản án số: 10 ngày 09/01/2026 (26.03.2026)", "")
+    assert fallback == "Bản án số: 10 ngày 09/01/2026"
+    assert service._build_file_name("", "https://example.com/sample_6.pdf", fallback_title=fallback) == "Bản án số- 10 ngày 09-01-2026.pdf"
 
 
 def test_init_db_adds_search_snapshot_columns_and_document_files_table(tmp_path, monkeypatch) -> None:
@@ -336,6 +385,87 @@ def test_search_document_files_matches_without_diacritics(tmp_path, monkeypatch)
     assert payload["items"][0]["document_number"] == "126/2026/DS-PT"
 
 
+def test_search_document_files_uses_derived_document_type_for_options_and_filter(tmp_path, monkeypatch) -> None:
+    settings = configure_temp_settings(tmp_path, monkeypatch)
+    init_db()
+    service = JobService(DummySearchService(), DummyDetailService(), DummyPdfService())
+
+    pdf_a = settings.downloads_dir / "18-04-2026-11-00" / "ban-an.pdf"
+    pdf_b = settings.downloads_dir / "18-04-2026-11-00" / "quyet-dinh.pdf"
+    pdf_a.parent.mkdir(parents=True, exist_ok=True)
+    pdf_a.write_bytes(b"%PDF-1.4")
+    pdf_b.write_bytes(b"%PDF-1.4")
+
+    with sqlite3.connect(settings.db_path) as conn:
+        conn.execute(
+            """
+            INSERT INTO documents (
+                source_url, document_id, title, document_type, issued_date, court_name,
+                case_style, legal_relation, source_card_text, search_text_normalized, pdf_path,
+                file_name_original, download_status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "https://example.com/doc-ban-an",
+                "doc-ban-an",
+                "Bản án số: 10 ngày 09/01/2026",
+                "Quyết định",
+                "2026-01-09",
+                "Tòa án A",
+                "Dân sự",
+                "Tranh chấp quyền sử dụng đất",
+                "Bản án: số 10 ngày 09/01/2026 của Tòa án A",
+                "ban an so 10 ngay 09/01/2026",
+                str(pdf_a),
+                "ban-an.pdf",
+                "completed",
+            ),
+        )
+        conn.execute(
+            """
+            INSERT INTO documents (
+                source_url, document_id, title, document_type, issued_date, court_name,
+                case_style, legal_relation, source_card_text, search_text_normalized, pdf_path,
+                file_name_original, download_status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "https://example.com/doc-quyet-dinh",
+                "doc-quyet-dinh",
+                "Quyết định số 15/2026/QĐ-PT ngày 29/03/2026",
+                "Quyết định",
+                "2026-03-29",
+                "Tòa án B",
+                "Dân sự",
+                "Tranh chấp cổ phần",
+                "Quyết định: số 15/2026/QĐ-PT của Tòa án B",
+                "quyet dinh so 15/2026/qd-pt",
+                str(pdf_b),
+                "quyet-dinh.pdf",
+                "completed",
+            ),
+        )
+        conn.execute(
+            "INSERT INTO document_files (document_source_url, job_id, job_folder, pdf_path, file_name_original) VALUES (?, ?, ?, ?, ?)",
+            ("https://example.com/doc-ban-an", 1, str(pdf_a.parent), str(pdf_a), "ban-an.pdf"),
+        )
+        conn.execute(
+            "INSERT INTO document_files (document_source_url, job_id, job_folder, pdf_path, file_name_original) VALUES (?, ?, ?, ?, ?)",
+            ("https://example.com/doc-quyet-dinh", 1, str(pdf_b.parent), str(pdf_b), "quyet-dinh.pdf"),
+        )
+        conn.commit()
+
+    payload = service.search_document_files(page=1, page_size=10)
+    assert payload["filter_options"]["document_type"] == [
+        {"value": "Bản án", "label": "Bản án"},
+        {"value": "Quyết định", "label": "Quyết định"},
+    ]
+
+    judgments = service.search_document_files(document_type="Bản án", page=1, page_size=10)
+    assert judgments["total"] == 1
+    assert judgments["items"][0]["file_name_original"] == "ban-an.pdf"
+
+
 def test_delete_document_removes_file_copy_and_canonical_when_last_copy(tmp_path, monkeypatch) -> None:
     settings = configure_temp_settings(tmp_path, monkeypatch)
     init_db()
@@ -487,3 +617,78 @@ def test_completed_job_actions_are_noop(tmp_path, monkeypatch) -> None:
 
     service.cancel_job(job_id)
     assert service.get_job(job_id)["status"] == "completed"
+
+
+def test_search_page_redirects_to_jobs_after_create_job() -> None:
+    js = Path("vietcase/static/js/app.js").read_text(encoding="utf-8")
+    assert 'window.location.assign("/jobs");' in js
+
+
+def test_open_file_allows_unicode_filename_in_inline_content_disposition(tmp_path, monkeypatch) -> None:
+    settings = configure_temp_settings(tmp_path, monkeypatch)
+    init_db()
+    service = JobService(DummySearchService(), DummyDetailService(), DummyPdfService())
+
+    pdf_path = settings.downloads_dir / "18-04-2026-11-00" / "12-2026-QĐPT-DS.pdf"
+    pdf_path.parent.mkdir(parents=True, exist_ok=True)
+    pdf_path.write_bytes(b"%PDF-1.4")
+
+    with sqlite3.connect(settings.db_path) as conn:
+        conn.execute(
+            "INSERT INTO documents (source_url, document_id, title, pdf_path, file_name_original, download_status) VALUES (?, ?, ?, ?, ?, ?)",
+            (
+                "https://example.com/doc-unicode",
+                "doc-unicode",
+                "Quyết định số 12/2026/QĐPT-DS",
+                str(pdf_path),
+                pdf_path.name,
+                "completed",
+            ),
+        )
+        conn.execute(
+            "INSERT INTO document_files (document_source_url, job_id, job_folder, pdf_path, file_name_original) VALUES (?, ?, ?, ?, ?)",
+            ("https://example.com/doc-unicode", 1, str(pdf_path.parent), str(pdf_path), pdf_path.name),
+        )
+        file_id = int(conn.execute("SELECT id FROM document_files WHERE document_source_url = ?", ("https://example.com/doc-unicode",)).fetchone()[0])
+        conn.commit()
+
+    request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(services={"job_service": service})))
+    response = routes_documents.open_file(file_id, request)
+
+    assert response.headers["content-disposition"].startswith("inline;")
+    assert "filename*=" in response.headers["content-disposition"]
+
+
+def test_download_file_keeps_attachment_with_unicode_filename(tmp_path, monkeypatch) -> None:
+    settings = configure_temp_settings(tmp_path, monkeypatch)
+    init_db()
+    service = JobService(DummySearchService(), DummyDetailService(), DummyPdfService())
+
+    pdf_path = settings.downloads_dir / "18-04-2026-11-00" / "Bản án số- 06-2026 ngày 27-01-2026.pdf"
+    pdf_path.parent.mkdir(parents=True, exist_ok=True)
+    pdf_path.write_bytes(b"%PDF-1.4")
+
+    with sqlite3.connect(settings.db_path) as conn:
+        conn.execute(
+            "INSERT INTO documents (source_url, document_id, title, pdf_path, file_name_original, download_status) VALUES (?, ?, ?, ?, ?, ?)",
+            (
+                "https://example.com/doc-download",
+                "doc-download",
+                "Bản án số 06/2026 ngày 27/01/2026",
+                str(pdf_path),
+                pdf_path.name,
+                "completed",
+            ),
+        )
+        conn.execute(
+            "INSERT INTO document_files (document_source_url, job_id, job_folder, pdf_path, file_name_original) VALUES (?, ?, ?, ?, ?)",
+            ("https://example.com/doc-download", 1, str(pdf_path.parent), str(pdf_path), pdf_path.name),
+        )
+        file_id = int(conn.execute("SELECT id FROM document_files WHERE document_source_url = ?", ("https://example.com/doc-download",)).fetchone()[0])
+        conn.commit()
+
+    request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(services={"job_service": service})))
+    response = routes_documents.download_file(file_id, request)
+
+    assert response.headers["content-disposition"].startswith("attachment;")
+    assert "filename*=" in response.headers["content-disposition"]
