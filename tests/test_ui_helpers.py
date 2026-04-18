@@ -165,6 +165,41 @@ def test_search_layout_css_defines_two_column_shell_and_mobile_fallback() -> Non
     assert ".search-sidebar input[type=\"text\"]," in css
 
 
+def test_base_template_uses_shared_nav_links_for_all_pages() -> None:
+    template = Path("vietcase/templates/base.html").read_text(encoding="utf-8")
+    assert 'class="site-nav-link {% if page == \'index\' %}active{% endif %}"' in template
+    assert 'class="site-nav-link {% if page == \'jobs\' %}active{% endif %}"' in template
+    assert 'class="site-nav-link {% if page == \'documents\' %}active{% endif %}"' in template
+    assert 'aria-current="page"' in template
+
+
+def test_shared_templates_do_not_start_with_utf8_bom() -> None:
+    for rel in [
+        "vietcase/templates/base.html",
+        "vietcase/templates/index.html",
+        "vietcase/templates/jobs.html",
+        "vietcase/templates/documents.html",
+    ]:
+        assert not Path(rel).read_bytes().startswith(b"\xef\xbb\xbf"), rel
+
+
+def test_navbar_hover_uses_visual_effect_not_underline() -> None:
+    css = Path("vietcase/static/css/app.css").read_text(encoding="utf-8")
+    assert ".site-nav-link:hover," in css
+    assert "text-decoration: none;" in css
+    assert "transform: translateY(-2px);" in css
+    assert ".site-nav-link::before" in css
+
+
+def test_navbar_links_use_consistent_width_and_alignment() -> None:
+    css = Path("vietcase/static/css/app.css").read_text(encoding="utf-8")
+    assert ".site-nav {" in css
+    assert "justify-content: flex-end;" in css
+    assert "min-width: 152px;" in css
+    assert "text-align: center;" in css
+    assert ".site-nav-link.active {" in css
+
+
 def test_pdf_file_name_prefers_document_number() -> None:
     service = PdfService()
     assert service._build_file_name("116/2026/DS-PT", "https://example.com/sample.pdf") == "116-2026-DS-PT.pdf"

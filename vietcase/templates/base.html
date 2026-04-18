@@ -1,10 +1,10 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="vi">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}VietCase{% endblock %}</title>
-  <link rel="stylesheet" href="/static/css/app.css?v=20260417-v2">
+  <link rel="stylesheet" href="/static/css/app.css?v=20260418-nav2">
 </head>
 <body>
   <header class="site-header">
@@ -16,9 +16,9 @@
       </div>
     </div>
     <nav class="site-nav">
-      <a href="/" class="{% if page == 'index' %}active{% endif %}">Tìm kiếm</a>
-      <a href="/jobs" class="{% if page == 'jobs' %}active{% endif %}">Lịch sử tải</a>
-      <a href="/documents" class="{% if page == 'documents' %}active{% endif %}">Tài liệu đã tải</a>
+      <a href="/" class="site-nav-link {% if page == 'index' %}active{% endif %}" {% if page == 'index' %}aria-current="page"{% endif %}>Tìm kiếm</a>
+      <a href="/jobs" class="site-nav-link {% if page == 'jobs' %}active{% endif %}" {% if page == 'jobs' %}aria-current="page"{% endif %}>Lịch sử tải</a>
+      <a href="/documents" class="site-nav-link {% if page == 'documents' %}active{% endif %}" {% if page == 'documents' %}aria-current="page"{% endif %}>Tài liệu đã tải</a>
     </nav>
   </header>
 
