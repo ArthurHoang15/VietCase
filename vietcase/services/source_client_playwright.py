@@ -68,7 +68,14 @@ class PlaywrightSourceClient:
             "state": self._build_state(parsed, html, values=values),
         }
 
-    def search_preview(self, filters: dict[str, object], page_index: int = 1, state: dict[str, object] | None = None) -> dict[str, object]:
+    def search_preview(
+        self,
+        filters: dict[str, object],
+        page_index: int = 1,
+        state: dict[str, object] | None = None,
+        *,
+        throttle_ms: int | None = None,
+    ) -> dict[str, object]:
         submitted_values = self._normalize_values(
             dict((state or {}).get("values", {})) or dict(filters),
             include_all_fields=True,

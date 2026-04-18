@@ -395,7 +395,11 @@ class JobService:
         )
 
     def _populate_items_from_filters(self, job_id: int, filters: dict[str, object]) -> None:
-        search_ctx = SourceContext(source_mode=self.settings.search_source_mode, job_id=job_id)
+        search_ctx = SourceContext(
+            source_mode=self.settings.search_source_mode,
+            job_id=job_id,
+            throttle_ms=self.settings.crawl_rate_limit_ms,
+        )
         total_pages = 0
         total_results = 0
         for preview in self.search_service.iter_all_results(filters, context=search_ctx):

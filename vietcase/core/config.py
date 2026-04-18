@@ -11,15 +11,17 @@ class Settings:
     port: int = 8000
     request_timeout: int = 120
     rate_limit_ms: int = 1500
+    interactive_rate_limit_ms: int = 0
+    crawl_rate_limit_ms: int = 1500
     max_retries: int = 3
     playwright_enabled: bool = True
     source_mode_default: str = "auto"
-    search_source_mode: str = "playwright"
+    search_source_mode: str = "requests"
     download_source_mode: str = "requests"
     playwright_browser: str = "chromium"
     tls_mode: str = "auto"
     preview_state_ttl_seconds: int = 1800
-    debug_search_snapshots: bool = True
+    debug_search_snapshots: bool = False
     base_dir: Path = Path(__file__).resolve().parents[2]
 
     @property

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timedelta
+from typing import Callable
 from uuid import uuid4
 
 from vietcase.core.config import get_settings
@@ -10,19 +11,31 @@ from vietcase.services.source_router import SourceContext, SourceRouter
 
 
 class SearchService:
-    def __init__(self, source_router: SourceRouter) -> None:
+    def __init__(self, source_router: SourceRouter, form_state_provider: Callable[[str], dict[str, object] | None] | None = None) -> None:
         self.source_router = source_router
         self.settings = get_settings()
+        self.form_state_provider = form_state_provider or (lambda _form_state_id: None)
         self._states: dict[str, dict[str, object]] = {}
 
-    def preview(self, filters: dict[str, object], page_index: int = 1, context: SourceContext | None = None) -> SearchPreviewResult:
+    def preview(
+        self,
+        filters: dict[str, object],
+        page_index: int = 1,
+        context: SourceContext | None = None,
+        form_state_id: str | None = None,
+    ) -> SearchPreviewResult:
         self._cleanup_states()
-        ctx = context or SourceContext(source_mode=self.settings.search_source_mode)
-        payload = self.source_router.call("search_preview", ctx, filters, page_index, None)
+        source_state = None
+        if form_state_id:
+            form_state = self.form_state_provider(form_state_id) or {}
+            source_state = form_state.get("source_state")
+            context = context or SourceContext(source_mode=str(form_state.get("source_mode") or self.settings.search_source_mode))
+        ctx = self._context_with_default_throttle(context, self.settings.interactive_rate_limit_ms)
+        payload = self.source_router.call("search_preview", ctx, filters, page_index, source_state)
         fallback_used = False
         if self._is_invalid_search_state(payload) and ctx.source_mode == "requests":
-            fallback_ctx = SourceContext(source_mode="playwright")
-            fallback_payload = self.source_router.call("search_preview", fallback_ctx, filters, page_index, None)
+            fallback_ctx = SourceContext(source_mode="playwright", throttle_ms=ctx.throttle_ms)
+            fallback_payload = self.source_router.call("search_preview", fallback_ctx, filters, page_index, source_state)
             if self._is_invalid_search_state(fallback_payload):
                 invalid_fields = ", ".join((fallback_payload.get("state") or {}).get("invalid_fields", [])) or "unknown"
                 raise RuntimeError(f"Search filter state invalid after Playwright fallback: {invalid_fields}")
@@ -36,6 +49,7 @@ class SearchService:
             "submitted_values": submitted_values,
             "source_state": payload.get("state", {}),
             "source_mode": ctx.source_mode,
+            "throttle_ms": ctx.throttle_ms,
             "baseline_total_results": int(payload.get("total_results", 0)),
             "baseline_total_pages": int(payload.get("total_pages", 0)),
             "expires_at": datetime.utcnow() + timedelta(seconds=self.settings.preview_state_ttl_seconds),
@@ -54,12 +68,15 @@ class SearchService:
     def page(self, preview_id: str, page_index: int) -> SearchPreviewResult:
         self._cleanup_states()
         state = self._states[preview_id]
-        ctx = SourceContext(source_mode=state.get("source_mode", self.settings.search_source_mode))
+        ctx = SourceContext(
+            source_mode=state.get("source_mode", self.settings.search_source_mode),
+            throttle_ms=state["throttle_ms"] if "throttle_ms" in state else self.settings.interactive_rate_limit_ms,
+        )
         submitted_values = dict(state.get("submitted_values") or state["filters"])
         payload = self.source_router.call("search_preview", ctx, submitted_values, page_index, state.get("source_state"))
         fallback_used = False
         if (self._is_invalid_pagination_state(state, payload, page_index) or self._is_invalid_search_state(payload)) and ctx.source_mode == "requests":
-            fallback_ctx = SourceContext(source_mode="playwright")
+            fallback_ctx = SourceContext(source_mode="playwright", throttle_ms=ctx.throttle_ms)
             try:
                 fallback_payload = self.source_router.call("search_preview", fallback_ctx, submitted_values, page_index, state.get("source_state"))
             except Exception:
@@ -74,6 +91,7 @@ class SearchService:
         state["source_state"] = payload.get("state", {})
         state["submitted_values"] = dict((payload.get("state") or {}).get("values", submitted_values))
         state["source_mode"] = ctx.source_mode
+        state["throttle_ms"] = ctx.throttle_ms
         state["expires_at"] = datetime.utcnow() + timedelta(seconds=self.settings.preview_state_ttl_seconds)
         result = SearchPreviewResult(
             total_results=int(payload.get("total_results", 0)),
@@ -87,7 +105,8 @@ class SearchService:
         return result
 
     def iter_all_results(self, filters: dict[str, object], context: SourceContext | None = None):
-        first = self.preview(filters, page_index=1, context=context)
+        iter_context = self._context_with_default_throttle(context, self.settings.crawl_rate_limit_ms)
+        first = self.preview(filters, page_index=1, context=iter_context)
         yield first
         for page_index in range(2, first.total_pages + 1):
             yield self.page(first.preview_id, page_index)
@@ -172,3 +191,14 @@ class SearchService:
     def _is_invalid_search_state(self, payload: dict[str, object]) -> bool:
         state = payload.get("state") or {}
         return not bool(state.get("strict_filter_valid", True))
+
+    def _context_with_default_throttle(self, context: SourceContext | None, default_throttle_ms: int) -> SourceContext:
+        if context is None:
+            return SourceContext(source_mode=self.settings.search_source_mode, throttle_ms=default_throttle_ms)
+        if context.throttle_ms is not None:
+            return context
+        return SourceContext(
+            source_mode=context.source_mode or self.settings.search_source_mode,
+            job_id=context.job_id,
+            throttle_ms=default_throttle_ms,
+        )

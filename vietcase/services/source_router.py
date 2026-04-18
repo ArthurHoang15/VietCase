@@ -19,6 +19,7 @@ class FallbackRequiredError(RuntimeError):
 class SourceContext:
     source_mode: str = "requests"
     job_id: int | None = None
+    throttle_ms: int | None = None
 
 
 class SourceRouter:
@@ -30,11 +31,14 @@ class SourceRouter:
 
     def call(self, action: str, context: SourceContext, *args: Any, **kwargs: Any) -> Any:
         if action in SEARCH_ACTIONS:
+            search_kwargs = dict(kwargs)
+            if action == "search_preview" and context.throttle_ms is not None:
+                search_kwargs.setdefault("throttle_ms", context.throttle_ms)
             preferred_mode = context.source_mode or self.settings.search_source_mode
             if preferred_mode == "playwright" and not self._search_playwright_disabled:
                 try:
                     context.source_mode = "playwright"
-                    return self._invoke(self.playwright_client, action, *args, **kwargs)
+                    return self._invoke(self.playwright_client, action, *args, **search_kwargs)
                 except Exception as exc:
                     message = str(exc)
                     if "Sync API inside the asyncio loop" in message:
@@ -45,7 +49,7 @@ class SourceRouter:
                         exc,
                     )
             context.source_mode = "requests"
-            return self._invoke(self.requests_client, action, *args, **kwargs)
+            return self._invoke(self.requests_client, action, *args, **search_kwargs)
 
         if context.source_mode == "playwright":
             try:

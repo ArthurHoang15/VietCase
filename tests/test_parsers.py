@@ -483,7 +483,7 @@ def test_search_service_preview_and_page_keep_preview_state() -> None:
             self.calls = []
 
         def call(self, action: str, context: SourceContext, filters: dict, page_index: int, state: dict | None) -> dict[str, object]:
-            self.calls.append((action, context.source_mode, page_index, state))
+            self.calls.append((action, context.source_mode, context.throttle_ms, page_index, state))
             return {
                 "total_results": 20,
                 "total_pages": 2,
@@ -491,13 +491,63 @@ def test_search_service_preview_and_page_keep_preview_state() -> None:
                 "state": {"page": page_index},
             }
 
-    service = SearchService(FakeRouter())
+    router = FakeRouter()
+    service = SearchService(router)
     preview = service.preview({"case_style": "4"}, page_index=1)
     page2 = service.page(preview.preview_id, 2)
     assert preview.preview_id
-    assert preview.source_mode == "playwright"
+    assert preview.source_mode == "requests"
     assert page2.current_page == 2
     assert page2.results[0]["page_index"] == 2
+    assert router.calls[0][2] == service.settings.interactive_rate_limit_ms
+    assert router.calls[1][2] == service.settings.interactive_rate_limit_ms
+
+
+def test_search_service_preview_reuses_form_state_when_form_state_id_is_provided() -> None:
+    class FakeRouter:
+        def __init__(self) -> None:
+            self.calls = []
+
+        def call(self, action: str, context: SourceContext, filters: dict, page_index: int, state: dict | None) -> dict[str, object]:
+            self.calls.append((action, context.source_mode, context.throttle_ms, page_index, state))
+            return {
+                "total_results": 12,
+                "total_pages": 1,
+                "results": [{"source_url": "https://example.com/1", "page_index": 1}],
+                "state": {"page": 1, "values": filters},
+            }
+
+    source_state = {"hidden_fields": {"__VIEWSTATE": "cached"}, "values": {"court_level": "TW"}}
+    router = FakeRouter()
+    service = SearchService(router, form_state_provider=lambda form_state_id: {"source_state": source_state, "source_mode": "requests"} if form_state_id == "form-1" else None)
+
+    preview = service.preview({"keyword": "tranh chap"}, page_index=1, form_state_id="form-1")
+
+    assert preview.source_mode == "requests"
+    assert router.calls == [("search_preview", "requests", service.settings.interactive_rate_limit_ms, 1, source_state)]
+
+
+def test_search_service_iter_all_results_uses_crawl_throttle() -> None:
+    class FakeRouter:
+        def __init__(self) -> None:
+            self.calls = []
+
+        def call(self, action: str, context: SourceContext, filters: dict, page_index: int, state: dict | None) -> dict[str, object]:
+            self.calls.append((action, context.source_mode, context.throttle_ms, page_index, state))
+            return {
+                "total_results": 2,
+                "total_pages": 2,
+                "results": [{"source_url": f"https://example.com/{page_index}", "page_index": page_index}],
+                "state": {"page": page_index, "values": filters},
+            }
+
+    router = FakeRouter()
+    service = SearchService(router)
+    pages = list(service.iter_all_results({"keyword": "tranh chap"}))
+
+    assert [page.current_page for page in pages] == [1, 2]
+    assert router.calls[0][2] == service.settings.crawl_rate_limit_ms
+    assert router.calls[1][2] == service.settings.crawl_rate_limit_ms
 
 
 def test_search_service_falls_back_to_playwright_when_requests_pagination_changes_result_scope() -> None:
@@ -783,6 +833,31 @@ def test_requests_client_marks_invalid_search_state_when_echoed_values_do_not_ma
     assert payload["state"]["strict_filter_valid"] is False
     assert "document_type" in payload["state"]["invalid_fields"]
     assert "adjudication_level" in payload["state"]["invalid_fields"]
+
+
+def test_requests_client_search_preview_respects_explicit_throttle_ms(monkeypatch) -> None:
+    client = RequestsSourceClient()
+    sleep_calls: list[float] = []
+
+    def fake_request(method: str, url: str, *, data: dict[str, object] | None = None, tls_mode: str | None = None, **kwargs: object):
+        response = Response()
+        response.status_code = 200
+        response.encoding = "utf-8"
+        response.url = url
+        if method == "GET":
+            response._content = FILTER_HTML.encode("utf-8")
+            return response, "secure"
+        response._content = SEARCH_RESULTS_WITH_SELECTION_PAGE.encode("utf-8")
+        return response, "secure"
+
+    client._request = fake_request  # type: ignore[method-assign]
+    monkeypatch.setattr("vietcase.services.source_client_requests.time.sleep", lambda seconds: sleep_calls.append(seconds))
+
+    client.search_preview({"document_type": "1", "adjudication_level": "2"}, page_index=1, state=None, throttle_ms=0)
+    assert sleep_calls == []
+
+    client.search_preview({"document_type": "1", "adjudication_level": "2"}, page_index=1, state=None, throttle_ms=1500)
+    assert sleep_calls == [1.5]
 
 
 def test_form_service_dependent_options_reset_stale_child_values() -> None:

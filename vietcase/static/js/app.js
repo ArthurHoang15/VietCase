@@ -305,7 +305,7 @@ async function executeSearch(pageIndex = 1) {
   if (pageIndex === 1 || !appState.previewId) appState.currentFilters = collectFormPayload(form);
   const endpoint = pageIndex === 1 || !appState.previewId ? "/api/search/preview" : "/api/search/page";
   const body = pageIndex === 1 || !appState.previewId
-    ? { filters: appState.currentFilters, page_index: 1 }
+    ? { filters: appState.currentFilters, page_index: 1, form_state_id: appState.formStateId || "" }
     : { preview_id: appState.previewId, page_index: pageIndex };
   const payload = await runSearchAction(
     pageIndex === 1 || !appState.previewId ? "Đang tìm kiếm..." : "Đang chuyển trang...",

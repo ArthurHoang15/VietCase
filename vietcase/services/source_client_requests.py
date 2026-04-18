@@ -98,7 +98,14 @@ class RequestsSourceClient:
             "tls_mode": tls_mode,
         }
 
-    def search_preview(self, filters: dict[str, object], page_index: int = 1, state: dict[str, object] | None = None) -> dict[str, object]:
+    def search_preview(
+        self,
+        filters: dict[str, object],
+        page_index: int = 1,
+        state: dict[str, object] | None = None,
+        *,
+        throttle_ms: int | None = None,
+    ) -> dict[str, object]:
         working_state = deepcopy(state) if state else self.load_filters()["state"]
         fields = working_state.get("fields", {})
         if page_index <= 1 or not working_state.get("searched"):
@@ -129,7 +136,9 @@ class RequestsSourceClient:
             raise FallbackRequiredError("Search results DOM not present")
         parsed = self.form_parser.parse_form_state(html)
         working_state.update(self._build_state(parsed, html, tls_mode, values=submitted_values, searched=True, current_page=page_index))
-        time.sleep(self.settings.rate_limit_ms / 1000)
+        delay_ms = self.settings.interactive_rate_limit_ms if throttle_ms is None else throttle_ms
+        if delay_ms > 0:
+            time.sleep(delay_ms / 1000)
         return {
             **result,
             "state": working_state,

@@ -44,7 +44,7 @@ def create_app() -> FastAPI:
     source_router = SourceRouter(requests_client, playwright_client)
 
     form_service = FormService(source_router)
-    search_service = SearchService(source_router)
+    search_service = SearchService(source_router, form_service.get_state)
     detail_service = DetailService(source_router)
     pdf_service = PdfService()
     job_service = JobService(search_service, detail_service, pdf_service)

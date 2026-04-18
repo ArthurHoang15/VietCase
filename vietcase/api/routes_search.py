@@ -31,8 +31,9 @@ async def search_preview(request: Request) -> dict[str, object]:
     payload = await request.json()
     filters = payload.get("filters", {})
     page_index = int(payload.get("page_index", 1) or 1)
+    form_state_id = payload.get("form_state_id") or None
     search_service = request.app.state.services["search_service"]
-    result = await run_in_threadpool(search_service.preview, filters, page_index)
+    result = await run_in_threadpool(search_service.preview, filters, page_index, None, form_state_id)
     return {
         "total_results": result.total_results,
         "total_pages": result.total_pages,
