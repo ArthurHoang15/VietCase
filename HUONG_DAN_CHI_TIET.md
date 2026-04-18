@@ -34,13 +34,36 @@ Nếu bạn đã có sẵn thư mục `VietCase` thì bỏ qua bước này.
 
 Nếu chưa có:
 
-1. tải source code VietCase về máy
-2. giải nén nếu file là `.zip`
-3. đặt thư mục ở nơi dễ tìm, ví dụ:
+1. mở trang GitHub của dự án VietCase trên trình duyệt
+2. tìm nút màu xanh tên là `Code`
+3. bấm vào nút `Code`
+4. trong bảng vừa hiện ra, bấm `Download ZIP`
+
+Làm theo thứ tự này:
+
+1. mở trang GitHub của dự án
+2. bấm nút xanh `Code`
+3. bấm `Download ZIP`
+4. chờ máy tải xong file `.zip`
+5. vào thư mục `Downloads` của máy
+6. tìm file vừa tải về, thường có tên gần giống `VietCase-main.zip`
+7. nhấp chuột phải vào file `.zip`
+8. chọn `Extract All...` hoặc `Giải nén tất cả...`
+9. bấm `Extract`
+10. sau khi giải nén xong, bạn sẽ thấy một thư mục mới, thường có tên `VietCase-main`
+11. nếu muốn dễ nhớ hơn, bạn có thể đổi tên thư mục đó thành `VietCase`
+12. đặt thư mục ở nơi dễ tìm, ví dụ:
 
 ```text
 C:\Users\TênBạn\Downloads\VietCase
 ```
+
+Nếu bạn chưa từng dùng GitHub:
+
+- bạn không cần biết cách dùng `git`
+- bạn không cần cài GitHub Desktop
+- bạn chỉ cần bấm `Code` rồi bấm `Download ZIP`
+- sau đó giải nén như một file nén bình thường là đủ
 
 ## 4. Mở cửa sổ lệnh
 
