@@ -83,6 +83,146 @@ FILTER_HTML = """
 </form>
 """
 
+DEPENDENT_COURT_HTML = """
+<form>
+  <input type="hidden" name="__VIEWSTATE" value="after-court" />
+  <input id="ctl00_Content_home_Public_ctl00_txtKeyword_top" name="ctl00$Content_home_Public$ctl00$txtKeyword_top" type="text" value="" />
+  <input id="ctl00_Content_home_Public_ctl00_txtKeyword" name="ctl00$Content_home_Public$ctl00$txtKeyword" type="text" value="" />
+  <select id="ctl00_Content_home_Public_ctl00_Drop_Levels_top" name="ctl00$Content_home_Public$ctl00$Drop_Levels_top">
+    <option value="">-----ch?n-----</option>
+    <option value="TW" selected>TAND t?i cao</option>
+  </select>
+  <select id="ctl00_Content_home_Public_ctl00_Drop_Levels" name="ctl00$Content_home_Public$ctl00$Drop_Levels">
+    <option value="">-----ch?n-----</option>
+    <option value="TW" selected>TAND t?i cao</option>
+  </select>
+  <select id="ctl00_Content_home_Public_ctl00_Ra_Drop_Courts_top" name="ctl00$Content_home_Public$ctl00$Ra_Drop_Courts_top">
+    <option value="">-----ch?n-----</option>
+    <option value="TANDTC">T?a ?n m?u</option>
+  </select>
+  <select id="ctl00_Content_home_Public_ctl00_Ra_Drop_Courts" name="ctl00$Content_home_Public$ctl00$Ra_Drop_Courts">
+    <option value="">-----ch?n-----</option>
+    <option value="TANDTC">T?a ?n m?u</option>
+  </select>
+  <select id="ctl00_Content_home_Public_ctl00_Drop_LEVEL_JUDGMENT_SEARCH_top" name="ctl00$Content_home_Public$ctl00$Drop_LEVEL_JUDGMENT_SEARCH_top">
+    <option value="">-----ch?n-----</option>
+    <option value="2">Gi?m ??c th?m</option>
+    <option value="3">T?i th?m</option>
+  </select>
+  <select id="ctl00_Content_home_Public_ctl00_Drop_LEVEL_JUDGMENT_SEARCH" name="ctl00$Content_home_Public$ctl00$Drop_LEVEL_JUDGMENT_SEARCH">
+    <option value="">-----ch?n-----</option>
+    <option value="2">Gi?m ??c th?m</option>
+    <option value="3">T?i th?m</option>
+  </select>
+  <select id="ctl00_Content_home_Public_ctl00_Drop_STATUS_JUDGMENT_SEARCH_top" name="ctl00$Content_home_Public$ctl00$Drop_STATUS_JUDGMENT_SEARCH_top">
+    <option value="">-----ch?n-----</option>
+    <option value="0">B?n ?n</option>
+    <option value="1">Quy?t ??nh</option>
+  </select>
+  <select id="ctl00_Content_home_Public_ctl00_Drop_STATUS_JUDGMENT_SEARCH" name="ctl00$Content_home_Public$ctl00$Drop_STATUS_JUDGMENT_SEARCH">
+    <option value="">-----ch?n-----</option>
+    <option value="0">B?n ?n</option>
+    <option value="1">Quy?t ??nh</option>
+  </select>
+  <select id="ctl00_Content_home_Public_ctl00_Drop_CASES_STYLES_SEARCH_top" name="ctl00$Content_home_Public$ctl00$Drop_CASES_STYLES_SEARCH_top">
+    <option value="">-----ch?n-----</option>
+    <option value="DS">D?n s?</option>
+  </select>
+  <select id="ctl00_Content_home_Public_ctl00_Drop_CASES_STYLES_SEARCH" name="ctl00$Content_home_Public$ctl00$Drop_CASES_STYLES_SEARCH">
+    <option value="">-----ch?n-----</option>
+    <option value="DS">D?n s?</option>
+  </select>
+  <select id="ctl00_Content_home_Public_ctl00_Ra_Case_shows_search_top" name="ctl00$Content_home_Public$ctl00$Ra_Case_shows_search_top">
+    <option value="">-----ch?n-----</option>
+    <option value="QHPL">Tranh ch?p quy?n s? d?ng ??t</option>
+  </select>
+  <select id="ctl00_Content_home_Public_ctl00_Ra_Case_shows_search" name="ctl00$Content_home_Public$ctl00$Ra_Case_shows_search">
+    <option value="">-----ch?n-----</option>
+    <option value="QHPL">Tranh ch?p quy?n s? d?ng ??t</option>
+  </select>
+  <input id="ctl00_Content_home_Public_ctl00_Rad_DATE_FROM_top" name="ctl00$Content_home_Public$ctl00$Rad_DATE_FROM_top" type="text" value="" />
+  <input id="ctl00_Content_home_Public_ctl00_Rad_DATE_FROM" name="ctl00$Content_home_Public$ctl00$Rad_DATE_FROM" type="text" value="" />
+  <input id="ctl00_Content_home_Public_ctl00_Rad_DATE_TO_top" name="ctl00$Content_home_Public$ctl00$Rad_DATE_TO_top" type="text" value="" />
+  <input id="ctl00_Content_home_Public_ctl00_Rad_DATE_TO" name="ctl00$Content_home_Public$ctl00$Rad_DATE_TO" type="text" value="" />
+  <input id="ctl00_Content_home_Public_ctl00_check_anle_top" name="ctl00$Content_home_Public$ctl00$check_anle_top" type="checkbox" />
+  <input id="ctl00_Content_home_Public_ctl00_check_anle" name="ctl00$Content_home_Public$ctl00$check_anle" type="checkbox" />
+  <input id="ctl00_Content_home_Public_ctl00_check_anle_voted_top" name="ctl00$Content_home_Public$ctl00$check_anle_voted_top" type="checkbox" />
+  <input id="ctl00_Content_home_Public_ctl00_check_anle_voted" name="ctl00$Content_home_Public$ctl00$check_anle_voted" type="checkbox" />
+  <input id="ctl00_Content_home_Public_ctl00_cmd_search_banner" name="ctl00$Content_home_Public$ctl00$cmd_search_banner" type="submit" value="T?m ki?m" />
+  <select id="ctl00_Content_home_Public_ctl00_DropPages" name="ctl00$Content_home_Public$ctl00$DropPages"><option value="1">1</option></select>
+</form>
+"""
+
+SEARCH_RESULTS_WITH_SELECTION_HTML = """
+<form>
+  <input type="hidden" name="__VIEWSTATE" value="after-search" />
+  <input id="ctl00_Content_home_Public_ctl00_txtKeyword_top" name="ctl00$Content_home_Public$ctl00$txtKeyword_top" type="text" value="" />
+  <input id="ctl00_Content_home_Public_ctl00_txtKeyword" name="ctl00$Content_home_Public$ctl00$txtKeyword" type="text" value="" />
+  <select id="ctl00_Content_home_Public_ctl00_Drop_Levels_top" name="ctl00$Content_home_Public$ctl00$Drop_Levels_top">
+    <option value="">-----ch?n-----</option>
+    <option value="TW" selected>TAND t?i cao</option>
+  </select>
+  <select id="ctl00_Content_home_Public_ctl00_Drop_Levels" name="ctl00$Content_home_Public$ctl00$Drop_Levels">
+    <option value="">-----ch?n-----</option>
+    <option value="TW" selected>TAND t?i cao</option>
+  </select>
+  <select id="ctl00_Content_home_Public_ctl00_Ra_Drop_Courts_top" name="ctl00$Content_home_Public$ctl00$Ra_Drop_Courts_top">
+    <option value="">-----ch?n-----</option>
+    <option value="TANDTC">T?a ?n m?u</option>
+  </select>
+  <select id="ctl00_Content_home_Public_ctl00_Ra_Drop_Courts" name="ctl00$Content_home_Public$ctl00$Ra_Drop_Courts">
+    <option value="">-----ch?n-----</option>
+    <option value="TANDTC">T?a ?n m?u</option>
+  </select>
+  <select id="ctl00_Content_home_Public_ctl00_Drop_LEVEL_JUDGMENT_SEARCH_top" name="ctl00$Content_home_Public$ctl00$Drop_LEVEL_JUDGMENT_SEARCH_top">
+    <option value="">-----ch?n-----</option>
+    <option value="2" selected>Gi?m ??c th?m</option>
+    <option value="3">T?i th?m</option>
+  </select>
+  <select id="ctl00_Content_home_Public_ctl00_Drop_LEVEL_JUDGMENT_SEARCH" name="ctl00$Content_home_Public$ctl00$Drop_LEVEL_JUDGMENT_SEARCH">
+    <option value="">-----ch?n-----</option>
+    <option value="2" selected>Gi?m ??c th?m</option>
+    <option value="3">T?i th?m</option>
+  </select>
+  <select id="ctl00_Content_home_Public_ctl00_Drop_STATUS_JUDGMENT_SEARCH_top" name="ctl00$Content_home_Public$ctl00$Drop_STATUS_JUDGMENT_SEARCH_top">
+    <option value="">-----ch?n-----</option>
+    <option value="0">B?n ?n</option>
+    <option value="1" selected>Quy?t ??nh</option>
+  </select>
+  <select id="ctl00_Content_home_Public_ctl00_Drop_STATUS_JUDGMENT_SEARCH" name="ctl00$Content_home_Public$ctl00$Drop_STATUS_JUDGMENT_SEARCH">
+    <option value="">-----ch?n-----</option>
+    <option value="0">B?n ?n</option>
+    <option value="1" selected>Quy?t ??nh</option>
+  </select>
+  <select id="ctl00_Content_home_Public_ctl00_Drop_CASES_STYLES_SEARCH_top" name="ctl00$Content_home_Public$ctl00$Drop_CASES_STYLES_SEARCH_top">
+    <option value="">-----ch?n-----</option>
+    <option value="DS">D?n s?</option>
+  </select>
+  <select id="ctl00_Content_home_Public_ctl00_Drop_CASES_STYLES_SEARCH" name="ctl00$Content_home_Public$ctl00$Drop_CASES_STYLES_SEARCH">
+    <option value="">-----ch?n-----</option>
+    <option value="DS">D?n s?</option>
+  </select>
+  <select id="ctl00_Content_home_Public_ctl00_Ra_Case_shows_search_top" name="ctl00$Content_home_Public$ctl00$Ra_Case_shows_search_top">
+    <option value="">-----ch?n-----</option>
+    <option value="QHPL">Tranh ch?p quy?n s? d?ng ??t</option>
+  </select>
+  <select id="ctl00_Content_home_Public_ctl00_Ra_Case_shows_search" name="ctl00$Content_home_Public$ctl00$Ra_Case_shows_search">
+    <option value="">-----ch?n-----</option>
+    <option value="QHPL">Tranh ch?p quy?n s? d?ng ??t</option>
+  </select>
+  <input id="ctl00_Content_home_Public_ctl00_Rad_DATE_FROM_top" name="ctl00$Content_home_Public$ctl00$Rad_DATE_FROM_top" type="text" value="01/01/2026" />
+  <input id="ctl00_Content_home_Public_ctl00_Rad_DATE_FROM" name="ctl00$Content_home_Public$ctl00$Rad_DATE_FROM" type="text" value="01/01/2026" />
+  <input id="ctl00_Content_home_Public_ctl00_Rad_DATE_TO_top" name="ctl00$Content_home_Public$ctl00$Rad_DATE_TO_top" type="text" value="02/03/2026" />
+  <input id="ctl00_Content_home_Public_ctl00_Rad_DATE_TO" name="ctl00$Content_home_Public$ctl00$Rad_DATE_TO" type="text" value="02/03/2026" />
+  <input id="ctl00_Content_home_Public_ctl00_check_anle_top" name="ctl00$Content_home_Public$ctl00$check_anle_top" type="checkbox" checked />
+  <input id="ctl00_Content_home_Public_ctl00_check_anle" name="ctl00$Content_home_Public$ctl00$check_anle" type="checkbox" checked />
+  <input id="ctl00_Content_home_Public_ctl00_check_anle_voted_top" name="ctl00$Content_home_Public$ctl00$check_anle_voted_top" type="checkbox" />
+  <input id="ctl00_Content_home_Public_ctl00_check_anle_voted" name="ctl00$Content_home_Public$ctl00$check_anle_voted" type="checkbox" />
+  <input id="ctl00_Content_home_Public_ctl00_cmd_search_banner" name="ctl00$Content_home_Public$ctl00$cmd_search_banner" type="submit" value="T?m ki?m" />
+  <select id="ctl00_Content_home_Public_ctl00_DropPages" name="ctl00$Content_home_Public$ctl00$DropPages"><option value="1" selected>1</option></select>
+</form>
+"""
+
 LISTING_HTML = """
 <div id="ctl00_Content_home_Public_ctl00_lbl_count_record">5.907</div>
 <div id="ctl00_Content_home_Public_ctl00_LbShowtotal">296</div>
@@ -110,6 +250,8 @@ LISTING_HTML = """
   </div>
 </div>
 """
+
+SEARCH_RESULTS_WITH_SELECTION_PAGE = SEARCH_RESULTS_WITH_SELECTION_HTML + LISTING_HTML
 
 DETAIL_JUDGMENT_HTML = """
 <ul>
@@ -154,6 +296,18 @@ def test_form_parser_extracts_hidden_fields_and_field_metadata() -> None:
     }
     assert payload["search_button_name"] == "ctl00$Content_home_Public$ctl00$cmd_search_banner"
     assert payload["pagination_name"] == "ctl00$Content_home_Public$ctl00$DropPages"
+
+
+def test_form_parser_extracts_current_values_and_checked_state() -> None:
+    parser = FormParser()
+    payload = parser.parse_form_state(SEARCH_RESULTS_WITH_SELECTION_HTML)
+    assert payload["fields"]["court_level"]["current_value"] == "TW"
+    assert payload["fields"]["adjudication_level"]["current_value"] == "2"
+    assert payload["fields"]["document_type"]["current_value"] == "1"
+    assert payload["fields"]["date_from"]["current_value"] == "01/01/2026"
+    assert payload["fields"]["date_to"]["current_value"] == "02/03/2026"
+    assert payload["fields"]["precedent_applied"]["checked"] is True
+    assert payload["fields"]["precedent_voted"]["checked"] is False
 
 
 def test_listing_parser_extracts_source_card_metadata() -> None:
@@ -440,8 +594,11 @@ def test_requests_client_search_page_posts_webforms_pagination_eventtarget() -> 
     second = client.search_preview(filters, page_index=5, state=first["state"])
 
     assert second["results"][0]["page_index"] == 5
-    assert len(captured_posts) == 2
-    page_post = captured_posts[1]
+    assert len(captured_posts) == 4
+    assert captured_posts[0]["__EVENTTARGET"] == "ctl00$Content_home_Public$ctl00$Drop_Levels_top"
+    assert captured_posts[1]["__EVENTTARGET"] == "ctl00$Content_home_Public$ctl00$Drop_CASES_STYLES_SEARCH_top"
+    assert captured_posts[2]["__EVENTTARGET"] == ""
+    page_post = captured_posts[3]
     assert page_post["__EVENTTARGET"] == "ctl00$Content_home_Public$ctl00$DropPages"
     assert page_post["ctl00$Content_home_Public$ctl00$DropPages"] == "5"
     assert page_post["ctl00$Content_home_Public$ctl00$txtKeyword_top"] == "tranh chap"
@@ -498,6 +655,94 @@ def test_requests_client_dependent_options_posts_primary_control_names_only() ->
     assert "ctl00$Content_home_Public$ctl00$Ra_Drop_Courts_top" not in dependent_post
 
 
+def test_requests_client_court_level_dependency_returns_court_and_adjudication_level() -> None:
+    client = RequestsSourceClient()
+
+    def fake_request(method: str, url: str, *, data: dict[str, object] | None = None, tls_mode: str | None = None, **kwargs: object):
+        response = Response()
+        response.status_code = 200
+        response.encoding = "utf-8"
+        response.url = url
+        response._content = FILTER_HTML.encode("utf-8")
+        return response, "secure"
+
+    client._request = fake_request  # type: ignore[method-assign]
+
+    payload = client.load_dependent_options("court_level", "TW", {"fields": FormParser().parse_form_state(FILTER_HTML)["fields"]})
+
+    assert "court" in payload["selects"]
+    assert "adjudication_level" in payload["selects"]
+
+
+def test_requests_client_search_preview_uses_latest_hidden_fields_after_court_level_postback() -> None:
+    client = RequestsSourceClient()
+    captured_posts: list[dict[str, object]] = []
+
+    def fake_request(method: str, url: str, *, data: dict[str, object] | None = None, tls_mode: str | None = None, **kwargs: object):
+        response = Response()
+        response.status_code = 200
+        response.encoding = "utf-8"
+        response.url = url
+        if method == "GET":
+            response._content = FILTER_HTML.encode("utf-8")
+            return response, "secure"
+        captured_posts.append(dict(data or {}))
+        if len(captured_posts) == 1:
+            response._content = DEPENDENT_COURT_HTML.encode("utf-8")
+        else:
+            response._content = SEARCH_RESULTS_WITH_SELECTION_PAGE.encode("utf-8")
+        return response, "secure"
+
+    client._request = fake_request  # type: ignore[method-assign]
+
+    payload = client.search_preview(
+        {
+            "court_level": "TW",
+            "adjudication_level": "2",
+            "document_type": "1",
+            "date_from": "2026-01-01",
+            "date_to": "2026-03-02",
+            "precedent_applied": True,
+        },
+        page_index=1,
+        state=None,
+    )
+
+    assert len(captured_posts) == 2
+    dependent_post = captured_posts[0]
+    final_post = captured_posts[1]
+    assert dependent_post["__EVENTTARGET"] == "ctl00$Content_home_Public$ctl00$Drop_Levels_top"
+    assert final_post["__VIEWSTATE"] == "after-court"
+    assert final_post["ctl00$Content_home_Public$ctl00$Drop_LEVEL_JUDGMENT_SEARCH_top"] == "2"
+    assert final_post["ctl00$Content_home_Public$ctl00$Drop_LEVEL_JUDGMENT_SEARCH"] == "2"
+    assert final_post["ctl00$Content_home_Public$ctl00$Drop_STATUS_JUDGMENT_SEARCH_top"] == "1"
+    assert final_post["ctl00$Content_home_Public$ctl00$Drop_STATUS_JUDGMENT_SEARCH"] == "1"
+    assert payload["state"]["strict_filter_valid"] is True
+    assert payload["state"]["invalid_fields"] == []
+
+
+def test_requests_client_marks_invalid_search_state_when_echoed_values_do_not_match() -> None:
+    client = RequestsSourceClient()
+
+    def fake_request(method: str, url: str, *, data: dict[str, object] | None = None, tls_mode: str | None = None, **kwargs: object):
+        response = Response()
+        response.status_code = 200
+        response.encoding = "utf-8"
+        response.url = url
+        if method == "GET":
+            response._content = FILTER_HTML.encode("utf-8")
+            return response, "secure"
+        response._content = (FILTER_HTML + LISTING_HTML).encode("utf-8")
+        return response, "secure"
+
+    client._request = fake_request  # type: ignore[method-assign]
+
+    payload = client.search_preview({"document_type": "1", "adjudication_level": "2"}, page_index=1, state=None)
+    assert payload["state"]["strict_filter_valid"] is False
+    assert "document_type" in payload["state"]["invalid_fields"]
+    assert "adjudication_level" in payload["state"]["invalid_fields"]
+
+
 def test_form_service_dependent_options_reset_stale_child_values() -> None:
     from vietcase.services.form_service import FormService
 
@@ -505,7 +750,10 @@ def test_form_service_dependent_options_reset_stale_child_values() -> None:
         def call(self, action: str, context: SourceContext, parent_field: str, parent_value: str, source_state: dict[str, object]) -> dict[str, object]:
             assert action == "load_dependent_options"
             return {
-                "selects": {"court": [{"value": "", "label": "-----ch?n-----"}]},
+                "selects": {
+                    "court": [{"value": "", "label": "-----ch?n-----"}],
+                    "adjudication_level": [{"value": "", "label": "-----ch?n-----"}],
+                },
                 "fields": {},
                 "state": {"values": {"court_level": parent_value}},
             }
@@ -513,9 +761,19 @@ def test_form_service_dependent_options_reset_stale_child_values() -> None:
     service = FormService(FakeRouter())  # type: ignore[arg-type]
     form_state_id = service._save_state(
         {
-            "source_state": {"values": {"court_level": "OLD", "court": "OLD_CHILD"}},
+            "source_state": {
+                "values": {
+                    "court_level": "OLD",
+                    "court": "OLD_CHILD",
+                    "adjudication_level": "OLD_ADJ",
+                }
+            },
             "source_mode": "requests",
-            "values": {"court_level": "OLD", "court": "OLD_CHILD"},
+            "values": {
+                "court_level": "OLD",
+                "court": "OLD_CHILD",
+                "adjudication_level": "OLD_ADJ",
+            },
         }
     )
 
@@ -524,3 +782,46 @@ def test_form_service_dependent_options_reset_stale_child_values() -> None:
     assert saved is not None
     assert saved["values"]["court_level"] == "TW"
     assert "court" not in saved["values"]
+    assert "adjudication_level" not in saved["values"]
+
+
+def test_search_service_preview_falls_back_to_playwright_when_requests_filter_state_invalid() -> None:
+    class FakeRouter:
+        def __init__(self) -> None:
+            self.calls = []
+
+        def call(self, action: str, context: SourceContext, filters: dict, page_index: int, state: dict | None) -> dict[str, object]:
+            self.calls.append((action, context.source_mode, page_index, state))
+            if context.source_mode == "requests":
+                return {
+                    "total_results": 502,
+                    "total_pages": 26,
+                    "results": [{"source_url": "https://example.com/bad", "page_index": 1}],
+                    "state": {
+                        "values": filters,
+                        "strict_filter_valid": False,
+                        "invalid_fields": ["document_type", "adjudication_level"],
+                        "echoed_values": {"document_type": "", "adjudication_level": ""},
+                    },
+                }
+            return {
+                "total_results": 12,
+                "total_pages": 1,
+                "results": [{"source_url": "https://example.com/good", "page_index": 1}],
+                "state": {
+                    "values": filters,
+                    "strict_filter_valid": True,
+                    "invalid_fields": [],
+                    "echoed_values": {"document_type": "1", "adjudication_level": "2"},
+                },
+            }
+
+    service = SearchService(FakeRouter())
+    preview = service.preview(
+        {"document_type": "1", "adjudication_level": "2"},
+        page_index=1,
+        context=SourceContext(source_mode="requests"),
+    )
+    assert preview.source_mode == "playwright"
+    assert preview.total_results == 12
+    assert preview.results[0]["source_url"] == "https://example.com/good"

@@ -10,7 +10,7 @@ from vietcase.services.source_router import SourceContext, SourceRouter
 
 
 DEPENDENT_CHILDREN = {
-    "court_level": ["court"],
+    "court_level": ["court", "adjudication_level"],
     "case_style": ["legal_relation"],
 }
 

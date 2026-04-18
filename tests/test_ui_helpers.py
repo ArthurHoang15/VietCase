@@ -131,6 +131,30 @@ def test_with_job_display_fields_adds_vietnamese_status_label() -> None:
     assert with_job_display_fields({"status": "interrupted"})["status_display"] == "Bị gián đoạn"
 
 
+def test_search_index_template_uses_two_column_layout() -> None:
+    template = Path("vietcase/templates/index.html").read_text(encoding="utf-8")
+    assert 'class="search-shell"' in template
+    assert 'class="search-sidebar"' in template
+    assert 'class="search-results-column"' in template
+    assert template.index('class="search-sidebar"') < template.index('class="search-results-column"')
+    assert template.index("search-results-column") < template.index("search-summary-panel")
+    assert template.index("search-summary-panel") < template.index("search-results-panel")
+    assert template.index('id="download-now"') > template.index("search-results-panel")
+    assert 'id="download-now"' not in template.split("</form>", 1)[0]
+
+
+def test_search_layout_css_defines_two_column_shell_and_mobile_fallback() -> None:
+    css = Path("vietcase/static/css/app.css").read_text(encoding="utf-8")
+    assert ".search-shell" in css
+    assert ".search-sidebar" in css
+    assert ".search-results-column" in css
+    assert "max-width: 1480px;" in css
+    assert "grid-template-columns: minmax(340px, 0.9fr) minmax(0, 2fr);" in css
+    assert ".search-summary-panel .summary-item" in css
+    assert ".search-sidebar .panel {" in css
+    assert ".search-sidebar input[type=\"text\"]," in css
+
+
 def test_pdf_file_name_prefers_document_number() -> None:
     service = PdfService()
     assert service._build_file_name("116/2026/DS-PT", "https://example.com/sample.pdf") == "116-2026-DS-PT.pdf"

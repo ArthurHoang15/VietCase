@@ -19,6 +19,16 @@ class SearchService:
         self._cleanup_states()
         ctx = context or SourceContext(source_mode=self.settings.search_source_mode)
         payload = self.source_router.call("search_preview", ctx, filters, page_index, None)
+        fallback_used = False
+        if self._is_invalid_search_state(payload) and ctx.source_mode == "requests":
+            fallback_ctx = SourceContext(source_mode="playwright")
+            fallback_payload = self.source_router.call("search_preview", fallback_ctx, filters, page_index, None)
+            if self._is_invalid_search_state(fallback_payload):
+                invalid_fields = ", ".join((fallback_payload.get("state") or {}).get("invalid_fields", [])) or "unknown"
+                raise RuntimeError(f"Search filter state invalid after Playwright fallback: {invalid_fields}")
+            payload = fallback_payload
+            ctx = fallback_ctx
+            fallback_used = True
         submitted_values = dict((payload.get("state") or {}).get("values", filters))
         preview_id = str(uuid4())
         self._states[preview_id] = {
@@ -38,7 +48,7 @@ class SearchService:
             preview_id=preview_id,
             current_page=page_index,
         )
-        self._write_debug_snapshot("preview", preview_id, result, filters, payload.get("state", {}), submitted_values, self._state_baseline(self._states[preview_id]))
+        self._write_debug_snapshot("preview", preview_id, result, filters, payload.get("state", {}), submitted_values, self._state_baseline(self._states[preview_id]), fallback_used=fallback_used)
         return result
 
     def page(self, preview_id: str, page_index: int) -> SearchPreviewResult:
@@ -48,16 +58,19 @@ class SearchService:
         submitted_values = dict(state.get("submitted_values") or state["filters"])
         payload = self.source_router.call("search_preview", ctx, submitted_values, page_index, state.get("source_state"))
         fallback_used = False
-        if self._is_invalid_pagination_state(state, payload, page_index) and ctx.source_mode == "requests":
+        if (self._is_invalid_pagination_state(state, payload, page_index) or self._is_invalid_search_state(payload)) and ctx.source_mode == "requests":
             fallback_ctx = SourceContext(source_mode="playwright")
             try:
                 fallback_payload = self.source_router.call("search_preview", fallback_ctx, submitted_values, page_index, state.get("source_state"))
             except Exception:
                 fallback_payload = None
-            if fallback_payload and not self._is_invalid_pagination_state(state, fallback_payload, page_index):
+            if fallback_payload and not self._is_invalid_pagination_state(state, fallback_payload, page_index) and not self._is_invalid_search_state(fallback_payload):
                 payload = fallback_payload
                 ctx = fallback_ctx
                 fallback_used = True
+            elif self._is_invalid_search_state(payload):
+                invalid_fields = ", ".join((payload.get("state") or {}).get("invalid_fields", [])) or "unknown"
+                raise RuntimeError(f"Search filter state invalid during pagination: {invalid_fields}")
         state["source_state"] = payload.get("state", {})
         state["submitted_values"] = dict((payload.get("state") or {}).get("values", submitted_values))
         state["source_mode"] = ctx.source_mode
@@ -125,6 +138,9 @@ class SearchService:
                 "current_page": source_state.get("current_page"),
                 "tls_mode": source_state.get("tls_mode"),
                 "values": source_state.get("values", {}),
+                "echoed_values": source_state.get("echoed_values", {}),
+                "strict_filter_valid": bool(source_state.get("strict_filter_valid", True)),
+                "invalid_fields": list(source_state.get("invalid_fields", [])),
                 "submitted_alias_names": {
                     logical_key: [str(alias.get("name", "")) for alias in meta.get("aliases", []) if alias.get("name")]
                     for logical_key, meta in (source_state.get("fields", {}) or {}).items()
@@ -152,3 +168,7 @@ class SearchService:
         if baseline["total_pages"] and returned_total_pages != baseline["total_pages"]:
             return True
         return False
+
+    def _is_invalid_search_state(self, payload: dict[str, object]) -> bool:
+        state = payload.get("state") or {}
+        return not bool(state.get("strict_filter_valid", True))

@@ -1,102 +1,108 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% block title %}VietCase | Tìm kiếm{% endblock %}
 {% block content %}
-<section class="panel hero-panel">
-  <div class="hero-copy">
-    <div class="panel-title">Tra cứu và tải PDF bản án, quyết định</div>
-    <p class="muted">Điền điều kiện tìm kiếm, xem trước kết quả có phân trang, rồi chọn tải từng hồ sơ hoặc tải toàn bộ theo bộ lọc.</p>
-  </div>
-  <form id="search-form" class="search-grid">
-    <label class="field-span-3">
-      <span>Từ khóa</span>
-      <input type="text" name="keyword" placeholder="Nhập tên vụ việc hoặc số bản án, quyết định">
-    </label>
-    <label>
-      <span>Cấp Tòa án</span>
-      <select name="court_level" data-dynamic="court_level"></select>
-    </label>
-    <label>
-      <span>Tòa án</span>
-      <select name="court" data-dynamic="court"></select>
-    </label>
-    <label>
-      <span>Cấp giải quyết/xét xử</span>
-      <select name="adjudication_level" data-dynamic="adjudication_level"></select>
-    </label>
-    <label>
-      <span>Bản án/quyết định</span>
-      <select name="document_type" data-dynamic="document_type"></select>
-    </label>
-    <label>
-      <span>Loại vụ việc</span>
-      <select name="case_style" data-dynamic="case_style"></select>
-    </label>
-    <label>
-      <span>Tội danh/quan hệ pháp luật/biện pháp xử lý</span>
-      <select name="legal_relation" data-dynamic="legal_relation"></select>
-    </label>
-    <label>
-      <span>Từ ngày</span>
-      <input type="text" name="date_from" placeholder="dd/MM/yyyy">
-    </label>
-    <label>
-      <span>Đến ngày</span>
-      <input type="text" name="date_to" placeholder="dd/MM/yyyy">
-    </label>
-    <div class="checkbox-stack">
-      <label class="check-label">
-        <input type="checkbox" name="precedent_applied">
-        <span>Có áp dụng án lệ</span>
-      </label>
-      <label class="check-label">
-        <input type="checkbox" name="precedent_voted">
-        <span>Được bình chọn làm nguồn phát triển án lệ</span>
-      </label>
-    </div>
-    <div class="button-row actions-row field-span-3">
-      <button type="submit" class="primary">Tìm kiếm</button>
-      <button type="button" id="download-now" class="secondary">Tải toàn bộ theo bộ lọc</button>
-      <button type="reset" class="ghost">Xóa điều kiện</button>
-    </div>
-  </form>
-</section>
+<div class="search-shell">
+  <aside class="search-sidebar">
+    <section class="panel hero-panel">
+      <div class="hero-copy">
+        <div class="panel-title">Tra cứu và tải PDF bản án, quyết định</div>
+        <p class="muted">Điền điều kiện tìm kiếm, xem trước kết quả có phân trang rồi chọn tải đúng hồ sơ cần thiết.</p>
+      </div>
+      <form id="search-form" class="search-grid">
+        <label class="field-span-3">
+          <span>Từ khóa</span>
+          <input type="text" name="keyword" placeholder="Nhập tên vụ việc hoặc số bản án, quyết định">
+        </label>
+        <label>
+          <span>Cấp Tòa án</span>
+          <select name="court_level" data-dynamic="court_level"></select>
+        </label>
+        <label>
+          <span>Tòa án</span>
+          <select name="court" data-dynamic="court"></select>
+        </label>
+        <label>
+          <span>Cấp giải quyết/xét xử</span>
+          <select name="adjudication_level" data-dynamic="adjudication_level"></select>
+        </label>
+        <label>
+          <span>Bản án/quyết định</span>
+          <select name="document_type" data-dynamic="document_type"></select>
+        </label>
+        <label>
+          <span>Loại vụ việc</span>
+          <select name="case_style" data-dynamic="case_style"></select>
+        </label>
+        <label class="field-span-3">
+          <span>Tội danh/quan hệ pháp luật/biện pháp xử lý</span>
+          <select name="legal_relation" data-dynamic="legal_relation"></select>
+        </label>
+        <label>
+          <span>Từ ngày</span>
+          <input type="text" name="date_from" placeholder="dd/MM/yyyy">
+        </label>
+        <label>
+          <span>Đến ngày</span>
+          <input type="text" name="date_to" placeholder="dd/MM/yyyy">
+        </label>
+        <div class="checkbox-stack field-span-3">
+          <label class="check-label">
+            <input type="checkbox" name="precedent_applied">
+            <span>Có áp dụng án lệ</span>
+          </label>
+          <label class="check-label">
+            <input type="checkbox" name="precedent_voted">
+            <span>Được bình chọn làm nguồn phát triển án lệ</span>
+          </label>
+        </div>
+        <div class="button-row actions-row field-span-3">
+          <button type="submit" class="primary">Tìm kiếm</button>
+          <button type="reset" class="ghost">Xóa điều kiện</button>
+        </div>
+      </form>
+    </section>
+  </aside>
 
-<section class="panel summary-panel">
-  <div class="summary-item">
-    <div class="summary-label">Tổng kết quả</div>
-    <div id="total-results" class="summary-value">0</div>
-  </div>
-  <div class="summary-item">
-    <div class="summary-label">Tổng số trang</div>
-    <div id="total-pages" class="summary-value">0</div>
-  </div>
-  <div class="summary-item">
-    <div class="summary-label">Nguồn truy cập</div>
-    <div class="summary-value source-wrap"><span id="source-mode-badge" class="badge badge-requests">requests</span></div>
-  </div>
-</section>
+  <section class="search-results-column">
+    <section class="summary-panel search-summary-panel panel">
+      <div class="summary-item">
+        <div class="summary-label">Tổng kết quả</div>
+        <div id="total-results" class="summary-value">0</div>
+      </div>
+      <div class="summary-item">
+        <div class="summary-label">Tổng số trang</div>
+        <div id="total-pages" class="summary-value">0</div>
+      </div>
+      <div class="summary-item">
+        <div class="summary-label">Nguồn truy cập</div>
+        <div class="summary-value source-wrap"><span id="source-mode-badge" class="badge badge-requests">requests</span></div>
+      </div>
+    </section>
 
-<section class="panel">
-  <div class="panel-head split">
-    <div>
-      <div class="panel-title">Kết quả tìm kiếm</div>
-      <p class="muted">Xem kết quả theo từng trang, đánh dấu hồ sơ cần tải, hoặc tạo đợt tải toàn bộ.</p>
-    </div>
-    <div class="button-row tight">
-      <button type="button" id="download-selected" class="secondary">Tải mục đã chọn</button>
-      <button type="button" id="download-page" class="ghost">Tải trang hiện tại</button>
-    </div>
-  </div>
-  <div id="results-list" class="result-list empty-state">Chưa có kết quả để hiển thị.</div>
-  <div id="pagination" class="pagination hidden">
-    <button type="button" id="prev-page" class="ghost">Trang trước</button>
-    <div class="page-indicator">Trang <span id="current-page">1</span> / <span id="page-count">1</span></div>
-    <label class="page-jump">
-      <span>Đến trang</span>
-      <input id="page-input" type="number" min="1" value="1">
-    </label>
-    <button type="button" id="jump-page" class="ghost">Đi</button>
-    <button type="button" id="next-page" class="ghost">Trang sau</button>
-  </div>
-</section>
+    <section class="panel search-results-panel">
+      <div class="panel-head split">
+        <div>
+          <div class="panel-title">Kết quả tìm kiếm</div>
+          <p class="muted">Xem kết quả theo từng trang, đánh dấu hồ sơ cần tải hoặc tạo đợt tải toàn bộ.</p>
+        </div>
+        <div class="button-row tight">
+          <button type="button" id="download-selected" class="secondary">Tải mục đã chọn</button>
+          <button type="button" id="download-page" class="ghost">Tải trang hiện tại</button>
+          <button type="button" id="download-now" class="secondary">Tải toàn bộ theo bộ lọc</button>
+        </div>
+      </div>
+      <div id="results-list" class="result-list empty-state">Chưa có kết quả để hiển thị.</div>
+      <div id="pagination" class="pagination hidden">
+        <button type="button" id="prev-page" class="ghost">Trang trước</button>
+        <div class="page-indicator">Trang <span id="current-page">1</span> / <span id="page-count">1</span></div>
+        <label class="page-jump">
+          <span>Đến trang</span>
+          <input id="page-input" type="number" min="1" value="1">
+        </label>
+        <button type="button" id="jump-page" class="ghost">Đi</button>
+        <button type="button" id="next-page" class="ghost">Trang sau</button>
+      </div>
+    </section>
+  </section>
+</div>
 {% endblock %}

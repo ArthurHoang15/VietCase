@@ -17,6 +17,8 @@ class ParsedField:
     label: str
     selector: str
     options: list[dict[str, str]]
+    current_value: str = ""
+    checked: bool = False
     priority: int = 0
     aliases: list[dict[str, object]] = field(default_factory=list)
 
@@ -118,8 +120,9 @@ class FormParser:
             label=self._resolve_label(select),
             selector=f"#{control_id}" if control_id else f"select[name='{select.get('name', '')}']",
             options=[{'value': normalize_whitespace(option.get('value', '')), 'label': normalize_whitespace(option.get_text(' ', strip=True))} for option in select.select('option')],
+            current_value=self._selected_option_value(select),
             priority=priority,
-            aliases=[self._build_alias(select.get('name', ''), control_id, priority, 'select')],
+            aliases=[self._build_alias(select, priority, 'select')],
         )
 
     def _build_input_field(self, control: Tag) -> ParsedField | None:
@@ -139,11 +142,15 @@ class FormParser:
             label=self._resolve_label(control),
             selector=f"#{control_id}" if control_id else f"input[name='{control.get('name', '')}']",
             options=[],
+            current_value=normalize_whitespace(control.get('value', '')),
+            checked=control.has_attr('checked'),
             priority=priority,
-            aliases=[self._build_alias(control.get('name', ''), control_id, priority, 'checkbox' if input_type == 'checkbox' else 'input')],
+            aliases=[self._build_alias(control, priority, 'checkbox' if input_type == 'checkbox' else 'input')],
         )
 
-    def _build_alias(self, name: str, control_id: str, priority: int, kind: str) -> dict[str, object]:
+    def _build_alias(self, control: Tag, priority: int, kind: str) -> dict[str, object]:
+        name = control.get('name', '')
+        control_id = control.get('id', '')
         selector = f"#{control_id}" if control_id else f"{'select' if kind == 'select' else 'input'}[name='{name}']"
         return {
             'name': name,
@@ -151,7 +158,23 @@ class FormParser:
             'selector': selector,
             'priority': priority,
             'kind': kind,
+            'current_value': self._current_control_value(control),
+            'checked': control.has_attr('checked'),
         }
+
+    def _current_control_value(self, control: Tag) -> str:
+        if control.name == 'select':
+            return self._selected_option_value(control)
+        return normalize_whitespace(control.get('value', ''))
+
+    def _selected_option_value(self, select: Tag) -> str:
+        selected = select.select_one('option[selected]')
+        if selected:
+            return normalize_whitespace(selected.get('value', ''))
+        first = select.select_one('option')
+        if first:
+            return normalize_whitespace(first.get('value', ''))
+        return ""
 
     def _resolve_logical_key(self, control: Tag) -> tuple[str, int] | None:
         control_id = control.get('id', '')

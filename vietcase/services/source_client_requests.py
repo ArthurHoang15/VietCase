@@ -21,8 +21,20 @@ LOGGER = logging.getLogger(__name__)
 BASE_URL = "https://congbobanan.toaan.gov.vn"
 SEARCH_URL = f"{BASE_URL}/0tat1cvn/ban-an-quyet-dinh"
 DEPENDENT_CHILDREN = {
-    "court_level": ["court"],
+    "court_level": ["court", "adjudication_level"],
     "case_style": ["legal_relation"],
+}
+STRICT_FILTER_KEYS = {
+    "court_level",
+    "court",
+    "adjudication_level",
+    "document_type",
+    "case_style",
+    "legal_relation",
+    "date_from",
+    "date_to",
+    "precedent_applied",
+    "precedent_voted",
 }
 
 
@@ -63,7 +75,7 @@ class RequestsSourceClient:
         if parent_field not in fields:
             return self.load_filters()
         payload = self._base_payload(working_state)
-        values = self._normalize_values(fields, dict(working_state.get("values", {})))
+        values = self._normalize_values(fields, dict(working_state.get("values", {})), include_all_fields=True)
         values[parent_field] = self._normalize_form_value(parent_field, parent_value)
         self._reset_dependent_children(values, parent_field)
         self._apply_values_to_payload(payload, fields, values, include_aliases=False)
@@ -77,6 +89,7 @@ class RequestsSourceClient:
             raise FallbackRequiredError(f"Dependent options for {parent_field} appear blocked")
         parsed = self.form_parser.parse_form_state(html)
         child_selects = {key: parsed["selects"].get(key, []) for key in DEPENDENT_CHILDREN.get(parent_field, [])}
+        values = self._prune_invalid_values(values, parsed.get("fields", {}))
         working_state.update(self._build_state(parsed, html, tls_mode, values=values))
         return {
             **parsed,
@@ -89,15 +102,16 @@ class RequestsSourceClient:
         working_state = deepcopy(state) if state else self.load_filters()["state"]
         fields = working_state.get("fields", {})
         if page_index <= 1 or not working_state.get("searched"):
-            submitted_values = self._normalize_values(fields, filters)
+            working_state, submitted_values = self._prepare_search_state_for_submit(filters, working_state)
+            fields = working_state.get("fields", {})
             payload = self._base_payload(working_state)
-            self._apply_values_to_payload(payload, fields, submitted_values, include_aliases=False)
+            self._apply_values_to_payload(payload, fields, submitted_values, include_aliases=True)
             search_button_name = working_state.get("search_button_name", "")
             if search_button_name:
                 payload[search_button_name] = "Tìm kiếm"
             response, tls_mode = self._request("POST", SEARCH_URL, data=payload, tls_mode=working_state.get("tls_mode", "secure"))
         else:
-            submitted_values = self._normalize_values(fields, dict(working_state.get("values", {})) or filters)
+            submitted_values = self._normalize_values(fields, dict(working_state.get("values", {})) or filters, include_all_fields=True)
             payload = self._base_payload(working_state)
             self._apply_values_to_payload(payload, fields, submitted_values, include_aliases=True)
             pagination_name = working_state.get("pagination_name", "")
@@ -176,8 +190,17 @@ class RequestsSourceClient:
             for name in names:
                 payload[name] = normalized_value
 
-    def _normalize_values(self, fields: dict[str, dict[str, object]], values: dict[str, object]) -> dict[str, object]:
+    def _normalize_values(
+        self,
+        fields: dict[str, dict[str, object]],
+        values: dict[str, object],
+        *,
+        include_all_fields: bool = False,
+    ) -> dict[str, object]:
         normalized: dict[str, object] = {}
+        if include_all_fields:
+            for logical_key, meta in fields.items():
+                normalized[logical_key] = False if meta.get("kind") == "checkbox" else ""
         for logical_key, value in values.items():
             if isinstance(value, bool):
                 normalized[logical_key] = value
@@ -203,18 +226,89 @@ class RequestsSourceClient:
                 continue
         return text
 
+    def _prepare_search_state_for_submit(self, filters: dict[str, object], state: dict[str, object]) -> tuple[dict[str, object], dict[str, object]]:
+        working_state = deepcopy(state)
+        fields = working_state.get("fields", {})
+        values = self._normalize_values(fields, filters, include_all_fields=True)
+        for parent_field in ("court_level", "case_style"):
+            parent_value = values.get(parent_field, "")
+            if not parent_value or parent_field not in fields:
+                continue
+            working_state = self._postback_field(working_state, parent_field, values)
+            fields = working_state.get("fields", {})
+            values = self._prune_invalid_values(values, fields)
+        return working_state, values
+
+    def _postback_field(self, state: dict[str, object], parent_field: str, values: dict[str, object]) -> dict[str, object]:
+        payload = self._base_payload(state)
+        fields = state.get("fields", {})
+        self._apply_values_to_payload(payload, fields, values, include_aliases=False)
+        parent_name = fields.get(parent_field, {}).get("name", "")
+        if parent_name:
+            payload["__EVENTTARGET"] = parent_name
+            payload["__EVENTARGUMENT"] = ""
+        response, tls_mode = self._request("POST", SEARCH_URL, data=payload, tls_mode=state.get("tls_mode", "secure"))
+        html = self._response_text(response)
+        parsed = self.form_parser.parse_form_state(html)
+        return self._build_state(parsed, html, tls_mode, values=values)
+
     def _build_state(self, parsed: dict[str, object], html: str, tls_mode: str, values: dict[str, object] | None = None, searched: bool = False, current_page: int = 1) -> dict[str, object]:
+        submitted_values = values or {}
+        echoed_values = self._extract_echoed_values(parsed.get("fields", {}))
+        strict_filter_valid, invalid_fields = self._validate_echoed_values(submitted_values, echoed_values)
         return {
             "hidden_fields": parsed.get("hidden_fields", {}),
             "fields": parsed.get("fields", {}),
             "pagination_name": parsed.get("pagination_name", ""),
             "search_button_name": parsed.get("search_button_name", ""),
-            "values": values or {},
+            "values": submitted_values,
+            "echoed_values": echoed_values,
+            "strict_filter_valid": strict_filter_valid,
+            "invalid_fields": invalid_fields,
             "searched": searched,
             "current_page": current_page,
             "tls_mode": tls_mode,
             "current_html": html,
         }
+
+    def _prune_invalid_values(self, values: dict[str, object], fields: dict[str, dict[str, object]]) -> dict[str, object]:
+        pruned = dict(values)
+        for logical_key, meta in fields.items():
+            if meta.get("kind") != "select":
+                continue
+            current = pruned.get(logical_key, "")
+            if current in ("", None):
+                continue
+            allowed = {str(option.get("value", "")) for option in meta.get("options", [])}
+            if str(current) not in allowed:
+                pruned[logical_key] = ""
+        return pruned
+
+    def _extract_echoed_values(self, fields: dict[str, dict[str, object]]) -> dict[str, object]:
+        echoed: dict[str, object] = {}
+        for logical_key, meta in fields.items():
+            if meta.get("kind") == "checkbox":
+                echoed[logical_key] = bool(meta.get("checked", False))
+                continue
+            echoed[logical_key] = self._normalize_form_value(logical_key, meta.get("current_value", ""))
+        return echoed
+
+    def _validate_echoed_values(self, submitted_values: dict[str, object], echoed_values: dict[str, object]) -> tuple[bool, list[str]]:
+        invalid_fields: list[str] = []
+        for logical_key in STRICT_FILTER_KEYS:
+            submitted = submitted_values.get(logical_key)
+            if submitted in (None, "", False):
+                continue
+            echoed = echoed_values.get(logical_key, False if isinstance(submitted, bool) else "")
+            if isinstance(submitted, bool):
+                if bool(submitted) != bool(echoed):
+                    invalid_fields.append(logical_key)
+                continue
+            normalized_submitted = str(self._normalize_form_value(logical_key, submitted)).strip()
+            normalized_echoed = str(self._normalize_form_value(logical_key, echoed)).strip()
+            if normalized_submitted != normalized_echoed:
+                invalid_fields.append(logical_key)
+        return len(invalid_fields) == 0, invalid_fields
 
     def _resolve_field_names(self, meta: dict[str, object], *, include_aliases: bool) -> list[str]:
         names: list[str] = []
